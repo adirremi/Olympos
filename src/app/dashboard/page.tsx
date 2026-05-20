@@ -482,49 +482,59 @@ function PerformanceSummary({
     : "אין עדיין נתוני ביצוע. מלא בוחן חודשי כדי לקבל תמונת התקדמות.";
 
   return (
-    <section className="unit-card grid gap-0 md:grid-cols-[0.4fr_0.6fr]">
-      <div
-        className="rounded-t-[22px] p-6 md:rounded-r-none md:rounded-t-[22px] md:rounded-br-none md:rounded-bl-none"
-        style={{
-          background: `linear-gradient(135deg, ${theme.palette.primary}, ${theme.palette.secondary})`,
-          color: theme.palette.onPrimary,
-        }}
-      >
-        <div className="font-stencil text-[11px] tracking-widest opacity-80">
-          הקבצה נוכחית
+    <section className="unit-card flex flex-col gap-4 p-4 md:flex-row md:items-center md:justify-between md:p-5">
+      <div className="flex items-center gap-3">
+        <div
+          className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl"
+          style={{
+            background: `linear-gradient(135deg, ${theme.palette.primary}, ${theme.palette.secondary})`,
+            color: theme.palette.onPrimary,
+          }}
+        >
+          <div className="font-display text-3xl leading-none">
+            {trainingLevelLabel(trainingLevel).replace("הקבצה ", "")}
+          </div>
         </div>
-        <div className="font-display mt-2 text-5xl leading-none">
-          {trainingLevelLabel(trainingLevel)}
+        <div>
+          <div className="font-stencil text-[10px] tracking-widest text-slate-500">
+            תמונת מצב
+          </div>
+          <div className="font-display text-xl leading-none text-slate-900">
+            {trainingLevelLabel(trainingLevel)}
+          </div>
         </div>
+      </div>
+
+      <div className="min-w-0 flex-1 md:px-4">
         {display ? (
-          <p className="mt-3 text-sm opacity-85">
+          <p className="truncate text-sm text-slate-600">
             {display.source === "baseline" ? "שאלון פתיחה · " : "בוחן חודשי · "}
             2000: {formatRunTime(display.run2000Seconds)} · מתח:{" "}
             {display.pullups} · סמיכה: {display.pushups}
           </p>
-        ) : null}
-      </div>
-      <div className="p-6">
-        <div className="font-stencil text-[11px] tracking-widest text-slate-500">
-          המשימה הקרובה
-        </div>
+        ) : (
+          <p className="text-sm text-slate-600">אין עדיין נתוני ביצוע.</p>
+        )}
         <p
-          className="mt-2 border-r-[3px] pr-4 text-base leading-8 text-slate-800"
+          className="mt-1 line-clamp-2 border-r-[3px] pr-3 text-sm leading-6 text-slate-800"
           style={{ borderColor: theme.palette.accent }}
         >
           {insight}
         </p>
+      </div>
+
+      <div className="shrink-0">
         <Link
           href="/performance"
-          className="unit-button is-solid mt-4"
+          className="unit-button is-ghost w-full md:w-auto"
           style={
             {
               "--unit-primary": theme.palette.primary,
-              "--unit-on": theme.palette.onPrimary,
+              color: theme.palette.primary,
             } as React.CSSProperties
           }
         >
-          לעמוד ביצועים →
+          ביצועים →
         </Link>
       </div>
     </section>
