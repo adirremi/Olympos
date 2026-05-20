@@ -13,7 +13,7 @@ export function optionalEnv(name: string): string | null {
 
 /** Public app URL, e.g. https://mentor.example.com — no trailing slash */
 export function appBaseUrl(): string | null {
-  return optionalEnv("APP_BASE_URL");
+  return optionalEnv("APP_BASE_URL") ?? "https://olympos-beta.vercel.app";
 }
 
 export function todayPageUrl(): string | null {
@@ -25,5 +25,5 @@ export function todayPageUrl(): string | null {
 export function todayPageLinkLine(): string | null {
   const url = todayPageUrl();
   if (!url) return null;
-  return `לפרטי האימון המלא:\n${url}`;
+  return `כניסה לאימון היום:\n${url}`;
 }

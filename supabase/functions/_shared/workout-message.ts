@@ -31,35 +31,18 @@ export type EveningRow = MorningRow & {
   days_to_sayeret: number | null;
 };
 
-function blocksToText(blocks: WorkoutBlock[] | undefined): string {
-  if (!Array.isArray(blocks) || blocks.length === 0) return "";
-  return blocks
-    .map((block) => {
-      const ex = Array.isArray(block.exercises) ? block.exercises.join(", ") : "";
-      return [block.title, block.sets, ex].filter(Boolean).join(" · ");
-    })
-    .filter(Boolean)
-    .join("\n");
-}
-
 export function buildMorningMessage(row: MorningRow): string {
   const snap = row.workout_snapshot ?? {};
   const name = row.full_name?.split(" ")[0] || "חניך";
   const workout = snap.name || row.workout_name;
-  const blocks = blocksToText(snap.blocks);
 
   return [
     `בוקר טוב ${name}.`,
     "",
-    "האימון שלך להיום:",
+    "האימון של היום מוכן:",
     workout,
     "",
-    snap.warmup ? `חימום: ${snap.warmup}` : null,
-    blocks ? `עיקרי:\n${blocks}` : null,
-    snap.finisher ? `סיום: ${snap.finisher}` : null,
-    snap.cooldown ? `שחרור: ${snap.cooldown}` : null,
-    "",
-    "בסיום האימון נכנסים לאתר, מסמנים סיום וממלאים תחקור קצר.",
+    "כל הפרטים, הסימון והתחקור מחכים לך באתר.",
     todayPageLinkLine(),
   ]
     .filter((line) => line !== null)
@@ -73,7 +56,7 @@ export function buildReminderMessage(row: MorningRow): string {
     `${name}, האימון של היום עדיין פתוח.`,
     workout,
     "",
-    "כדי לשמור רצף ולסגור את היום, נכנסים לאתר וממלאים תחקור קצר.",
+    "כנס לאתר כדי לסמן אם ביצעת ולשמור את הרצף.",
     todayPageLinkLine(),
   ]
     .filter((line) => line !== null)
@@ -146,13 +129,13 @@ export function buildEveningMessage(row: EveningRow): string {
   }
 
   return [
-    `${name}, תזכורת אחרונה להיום.`,
-    `אימון פתוח: ${workout}`,
+    `${name}, תזכורת ערב.`,
+    `סמן באתר את האימון של היום: ${workout}`,
     countdownLines.length ? "" : null,
     countdownLines.length ? "אירועים קרובים:" : null,
     ...countdownLines,
     "",
-    "סגירת האימון והתחקור מתבצעים באתר בלבד.",
+    "הסימון והתחקור מתבצעים באתר בלבד.",
     todayPageLinkLine(),
   ]
     .filter((line) => line !== null)
