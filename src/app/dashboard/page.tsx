@@ -329,6 +329,22 @@ function UnitHero({
       </div>
 
       <div className="relative z-10 grid items-center gap-4 md:grid-cols-[1fr_240px] md:gap-8">
+        <div className="flex items-center justify-between gap-3 md:hidden">
+          <div
+            className="rounded-2xl px-3 py-2"
+            style={{
+              background: "rgba(0,0,0,0.24)",
+              border: "1px solid rgba(255,255,255,0.14)",
+            }}
+          >
+            <div className="font-stencil text-[10px] tracking-widest opacity-70">
+              יחידת יעד
+            </div>
+            <div className="mt-0.5 text-sm font-bold">{theme.hebrewName}</div>
+          </div>
+          <UnitEmblem theme={theme} className="shrink-0" size={92} />
+        </div>
+
         <div className="space-y-4 md:space-y-5">
           <div
             className="font-stencil inline-block rounded-md px-3 py-1 text-xs tracking-widest"

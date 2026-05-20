@@ -431,18 +431,38 @@ body::before {
   }
 
   .unit-hero::after {
-    background: linear-gradient(180deg, transparent 45%, rgba(0, 0, 0, 0.28) 100%);
+    background:
+      radial-gradient(circle at 50% 18%, rgba(255, 255, 255, 0.1), transparent 40%),
+      linear-gradient(180deg, transparent 38%, rgba(0, 0, 0, 0.2) 100%);
   }
 
   .insignia-watermark {
-    justify-content: center;
+    justify-content: flex-start;
     padding-inline-start: 0;
-    opacity: 0.1;
+    opacity: 0.2;
+    filter: grayscale(0.08) contrast(1.2);
   }
 
   .insignia-watermark img {
-    max-height: 115%;
-    transform: translateY(4%);
+    max-height: 94%;
+    transform: translate(-10%, 10%);
+  }
+
+  .ambience-ocean {
+    background-size: cover, 150% 220px;
+    background-position: center, bottom;
+  }
+
+  .ambience-topo {
+    background-size: cover, 320px 320px;
+  }
+
+  .ambience-forest {
+    background-size: cover, 150% 190px;
+  }
+
+  .ambience-crystal {
+    background-size: cover, 170px 170px;
   }
 
   .unit-button {
