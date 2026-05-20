@@ -20,12 +20,15 @@ export async function AccountStrip() {
   }
 
   return (
-    <nav className="font-stencil flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200/70 bg-white/80 px-4 py-2.5 text-xs backdrop-blur">
-      <Link href="/" className="text-sm font-bold tracking-widest text-slate-900">
+    <nav className="font-stencil flex items-center justify-between gap-3 rounded-2xl border border-slate-200/70 bg-white/85 px-3 py-2 text-xs shadow-sm backdrop-blur md:px-4 md:py-2.5">
+      <Link
+        href="/"
+        className="shrink-0 text-sm font-bold tracking-widest text-slate-900"
+      >
         אולימפוס
       </Link>
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="no-scrollbar flex min-w-0 flex-1 items-center justify-end gap-2 overflow-x-auto">
         {user ? (
           <>
             {firstName ? (

@@ -198,8 +198,11 @@ export default async function DashboardPage() {
   } as React.CSSProperties;
 
   return (
-    <main className="unit-page px-4 py-8 md:px-6 md:py-10" style={pageStyle}>
-      <div className="mx-auto max-w-6xl space-y-6">
+    <main
+      className="unit-page px-3 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))] md:px-6 md:py-10"
+      style={pageStyle}
+    >
+      <div className="mx-auto max-w-6xl space-y-4 md:space-y-6">
         <AccountStrip />
 
         <UnitHero
@@ -274,7 +277,7 @@ function UnitHero({
 }) {
   return (
     <section
-      className="unit-hero p-7 md:p-10"
+      className="unit-hero p-4 md:p-10"
       style={{
         color: theme.palette.onPrimary,
         background: `linear-gradient(140deg, ${theme.palette.primary} 0%, ${theme.palette.secondary} 100%)`,
@@ -291,7 +294,7 @@ function UnitHero({
         />
       </div>
 
-      <div className="relative z-10 mb-6 flex flex-wrap items-center justify-between gap-3 text-xs">
+      <div className="relative z-10 mb-4 flex flex-wrap items-center justify-between gap-2 text-xs md:mb-6">
         <span
           className="font-stencil rounded-full px-3 py-1 tracking-widest"
           style={{
@@ -325,8 +328,8 @@ function UnitHero({
         </div>
       </div>
 
-      <div className="relative z-10 grid items-center gap-8 md:grid-cols-[1fr_240px]">
-        <div className="space-y-5">
+      <div className="relative z-10 grid items-center gap-4 md:grid-cols-[1fr_240px] md:gap-8">
+        <div className="space-y-4 md:space-y-5">
           <div
             className="font-stencil inline-block rounded-md px-3 py-1 text-xs tracking-widest"
             style={{
@@ -337,7 +340,7 @@ function UnitHero({
           >
             {theme.tagline}
           </div>
-          <h1 className="font-display text-5xl leading-[0.95] tracking-tight md:text-7xl">
+          <h1 className="font-display text-[44px] leading-[0.95] tracking-tight md:text-7xl">
             {firstName}
             <br />
             <span style={{ color: theme.palette.accent }}>
@@ -345,26 +348,30 @@ function UnitHero({
             </span>
           </h1>
           <p
-            className="max-w-lg text-base leading-7 opacity-85"
+            className="max-w-lg text-sm leading-6 opacity-85 md:text-base md:leading-7"
             style={{ color: theme.palette.onPrimary }}
           >
             {theme.motto}.
           </p>
 
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-3 gap-2 md:gap-3">
             <CountdownChip date={enlistment} days={enlistmentDays} label="גיוס" theme={theme} />
             <CountdownChip date={gibush} days={gibushDays} label="גיבוש" theme={theme} />
             <CountdownChip date={sayeret} days={sayeretDays} label="יום סיירות" theme={theme} />
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-2 sm:grid-cols-3 md:gap-3">
             <MetaChip label="יעד" value={theme.hebrewName} />
             <MetaChip label="הקבצה" value={trainingLevelLabel(trainingLevel)} />
             <MetaChip label="סטטוס" value="בתוכנית פעילה" />
           </div>
         </div>
 
-        <UnitEmblem theme={theme} className="mx-auto" size={220} />
+        <UnitEmblem
+          theme={theme}
+          className="mx-auto hidden md:block"
+          size={220}
+        />
       </div>
     </section>
   );
@@ -383,26 +390,26 @@ function CountdownChip({
 }) {
   return (
     <div
-      className="rounded-2xl p-4"
+      className="rounded-2xl p-3 md:p-4"
       style={{
         background: "rgba(255,255,255,0.08)",
         border: "1px solid rgba(255,255,255,0.15)",
         backdropFilter: "blur(6px)",
       }}
     >
-      <div className="font-stencil text-[11px] tracking-widest opacity-80">
+      <div className="font-stencil text-[10px] tracking-widest opacity-80 md:text-[11px]">
         {label}
       </div>
       <div
-        className="font-display mt-1 text-4xl leading-none"
+        className="font-display mt-1 text-3xl leading-none md:text-4xl"
         style={{ color: theme.palette.accent }}
       >
         {days === null ? "—" : days >= 0 ? days : 0}
       </div>
-      <div className="font-stencil mt-1 text-[10px] opacity-70">
+      <div className="font-stencil mt-1 text-[9px] opacity-70 md:text-[10px]">
         {days === null ? "לא הוגדר" : "ימים"}
       </div>
-      <div className="mt-1 text-[11px] opacity-70">{formatDate(date)}</div>
+      <div className="mt-1 text-[10px] opacity-70 md:text-[11px]">{formatDate(date)}</div>
     </div>
   );
 }

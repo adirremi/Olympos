@@ -54,7 +54,7 @@ export function SettingsDatesButton({
       {open && typeof document !== "undefined"
         ? createPortal(
             <div
-              className="fixed inset-0 z-[9999] grid place-items-center bg-slate-950/70 p-4 backdrop-blur-md"
+              className="fixed inset-0 z-[9999] flex items-end justify-center bg-slate-950/70 p-0 backdrop-blur-md sm:grid sm:place-items-center sm:p-4"
               onClick={(event) => {
                 if (event.target === event.currentTarget) setOpen(false);
               }}
@@ -64,10 +64,10 @@ export function SettingsDatesButton({
                 role="dialog"
                 aria-modal="true"
                 aria-label="עדכון תאריכים"
-                className="max-h-[calc(100vh-2rem)] w-full max-w-lg overflow-y-auto rounded-3xl bg-white text-slate-900 shadow-2xl"
+                className="mobile-sheet max-h-[86vh] w-full max-w-lg overflow-y-auto rounded-t-[28px] bg-white text-slate-900 shadow-2xl sm:max-h-[calc(100vh-2rem)] sm:rounded-3xl"
               >
                 <header
-                  className="flex items-center justify-between px-6 py-4"
+                  className="sticky top-0 z-10 flex items-center justify-between px-5 py-4 sm:px-6"
                   style={{
                     background: `linear-gradient(135deg, ${theme.palette.primary}, ${theme.palette.secondary})`,
                     color: theme.palette.onPrimary,
@@ -97,7 +97,7 @@ export function SettingsDatesButton({
                     await updateEventDates(formData);
                     setOpen(false);
                   }}
-                  className="space-y-4 p-6"
+                  className="space-y-4 p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:p-6"
                 >
                   <p className="text-sm text-slate-600">
                     העדכון נשמר ישירות במערכת. ספירות לאחור בדשבורד מתעדכנות מיד.

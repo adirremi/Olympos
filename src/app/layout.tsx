@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Anton, Bebas_Neue, Heebo } from "next/font/google";
 import "./globals.css";
 
@@ -23,6 +23,21 @@ const anton = Anton({
 export const metadata: Metadata = {
   title: "מנטור · הכנה לשירות קרבי משמעותי",
   description: "ליווי אישי מבוסס נתונים עד יום הגיוס.",
+  applicationName: "אולימפוס",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "אולימפוס",
+  },
+  formatDetection: {
+    telephone: false,
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0a2540",
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
