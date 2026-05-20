@@ -1,26 +1,387 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --ink: #0a0a0a;
+  --paper: #f1ede4;
+  --blood: #e63946;
+  --gold: #f4a261;
+  --steel: #264653;
+  --grid: rgba(10, 10, 10, 0.07);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-ink: var(--ink);
+  --color-paper: var(--paper);
+  --color-blood: var(--blood);
+  --color-gold: var(--gold);
+  --color-steel: var(--steel);
+  --color-background: var(--paper);
+  --color-foreground: var(--ink);
+  --font-sans: var(--font-heebo);
+  --font-display: var(--font-anton);
+  --font-mono: var(--font-bebas);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html,
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-heebo), Arial, Helvetica, sans-serif;
+  overflow-x: hidden;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-image: linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 40px 40px;
+  min-height: 100vh;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.08'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 1000;
+  mix-blend-mode: multiply;
+  opacity: 0.12;
+}
+
+.font-display {
+  font-family: var(--font-anton), Impact, sans-serif;
+  letter-spacing: -0.01em;
+}
+
+.font-stencil {
+  font-family: var(--font-bebas), Impact, sans-serif;
+  letter-spacing: 0.15em;
+}
+
+.brutal-border {
+  border: 3px solid var(--ink);
+}
+
+.brutal-shadow-ink {
+  box-shadow: 8px 8px 0 var(--ink);
+}
+
+.brutal-shadow-blood {
+  box-shadow: 8px 8px 0 var(--blood);
+}
+
+.brutal-shadow-gold {
+  box-shadow: 8px 8px 0 var(--gold);
+}
+
+.brutal-shadow-steel {
+  box-shadow: 8px 8px 0 var(--steel);
+}
+
+.brutal-card {
+  border: 3px solid var(--ink);
+  background: var(--paper);
+  box-shadow: 6px 6px 0 var(--ink);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.brutal-card:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 8px 8px 0 var(--blood);
+}
+
+.brutal-button {
+  border: 3px solid var(--ink);
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--font-bebas), Impact, sans-serif;
+  letter-spacing: 0.2em;
+  padding: 14px 24px;
+  box-shadow: 5px 5px 0 var(--blood);
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+  text-align: center;
+  display: inline-block;
+}
+
+.brutal-button:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 7px 7px 0 var(--blood);
+}
+
+.brutal-button.is-blood {
+  background: var(--blood);
+  color: var(--paper);
+  box-shadow: 5px 5px 0 var(--ink);
+}
+
+.brutal-button.is-paper {
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 5px 5px 0 var(--ink);
+}
+
+.brutal-input {
+  width: 100%;
+  border: 3px solid var(--ink);
+  background: var(--paper);
+  padding: 12px 16px;
+  font-family: var(--font-heebo), sans-serif;
+  font-size: 16px;
+  color: var(--ink);
+  outline: none;
+}
+
+.brutal-input:focus {
+  background: #fff;
+  box-shadow: 5px 5px 0 var(--blood);
+}
+
+.dotted-divider {
+  border-top: 2px dotted var(--ink);
+}
+
+.marquee-bg {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.marquee-track {
+  position: absolute;
+  top: 8px;
+  left: 0;
+  width: 200%;
+  font-family: var(--font-anton), Impact, sans-serif;
+  font-size: 96px;
+  color: var(--blood);
+  opacity: 0.12;
+  white-space: nowrap;
+  animation: marquee 30s linear infinite;
+}
+
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.pulse-dot {
+  width: 10px;
+  height: 10px;
+  background: var(--blood);
+  border-radius: 50%;
+  display: inline-block;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+/* === Unit-themed soft surfaces === */
+
+.unit-card {
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow:
+    0 1px 0 rgba(15, 23, 42, 0.04),
+    0 12px 30px -16px rgba(15, 23, 42, 0.18);
+  backdrop-filter: blur(6px);
+}
+
+.unit-chip {
+  border-radius: 14px;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  background: rgba(255, 255, 255, 0.9);
+  padding: 14px 16px;
+}
+
+.unit-hero {
+  position: relative;
+  border-radius: 28px;
+  overflow: hidden;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.08) inset,
+    0 30px 60px -30px rgba(0, 0, 0, 0.45);
+  isolation: isolate;
+}
+
+.unit-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 55%, rgba(0, 0, 0, 0.35) 100%);
+  pointer-events: none;
+}
+
+.unit-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 12px;
+  padding: 12px 20px;
+  font-family: var(--font-bebas), Impact, sans-serif;
+  letter-spacing: 0.18em;
+  font-size: 14px;
+  border: 1px solid currentColor;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+  cursor: pointer;
+}
+
+.unit-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px -10px rgba(0, 0, 0, 0.4);
+}
+
+.unit-button.is-solid {
+  background: var(--unit-primary, var(--ink));
+  color: var(--unit-on, var(--paper));
+  border-color: transparent;
+}
+
+.unit-button.is-ghost {
+  background: transparent;
+  color: var(--unit-primary, var(--ink));
+}
+
+/* === Ambience layers (positioned absolute inside .unit-hero) === */
+
+.ambience {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Ocean — Shayetet 13 */
+.ambience-ocean {
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% 110%, rgba(255, 255, 255, 0.18), transparent 70%),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 200'><path d='M0 120 Q 150 60 300 120 T 600 120 T 900 120 T 1200 120 V200 H0Z' fill='rgba(255,255,255,0.08)'/><path d='M0 150 Q 150 100 300 150 T 600 150 T 900 150 T 1200 150 V200 H0Z' fill='rgba(255,255,255,0.12)'/><path d='M0 180 Q 150 140 300 180 T 600 180 T 900 180 T 1200 180 V200 H0Z' fill='rgba(255,255,255,0.18)'/></svg>");
+  background-size: cover, 100% 240px;
+  background-repeat: no-repeat, repeat-x;
+  background-position: center, bottom;
+}
+
+/* Sky — Paratroopers, with subtle altitude haze */
+.ambience-sky {
+  background-image:
+    radial-gradient(ellipse 70% 50% at 80% 0%, rgba(255, 255, 255, 0.22), transparent 70%),
+    radial-gradient(ellipse 60% 40% at 20% 100%, rgba(0, 0, 0, 0.25), transparent 70%),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 600 400'><g fill='rgba(255,255,255,0.08)'><ellipse cx='120' cy='80' rx='60' ry='14'/><ellipse cx='400' cy='140' rx='90' ry='16'/><ellipse cx='250' cy='250' rx='70' ry='12'/></g></svg>");
+  background-size: cover, cover, 600px 400px;
+  background-repeat: no-repeat, no-repeat, repeat;
+}
+
+/* Topo — Sayeret Matkal: contour lines */
+.ambience-topo {
+  background-image:
+    radial-gradient(ellipse 90% 60% at 50% 0%, rgba(255, 255, 255, 0.06), transparent 70%),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 400'><g fill='none' stroke='rgba(192,160,98,0.18)' stroke-width='1'><path d='M-50 200 Q 100 120 200 200 T 450 200'/><path d='M-50 240 Q 100 160 200 240 T 450 240'/><path d='M-50 280 Q 100 200 200 280 T 450 280'/><path d='M-50 320 Q 100 240 200 320 T 450 320'/><path d='M-50 160 Q 100 80 200 160 T 450 160'/><path d='M-50 120 Q 100 40 200 120 T 450 120'/></g></svg>");
+  background-size: cover, 460px 460px;
+  background-repeat: no-repeat, repeat;
+}
+
+/* Forest — Commando: layered diagonal terrain */
+.ambience-forest {
+  background-image:
+    radial-gradient(ellipse 80% 60% at 50% 0%, rgba(255, 255, 255, 0.07), transparent 70%),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 600 200'><g fill='rgba(0,0,0,0.18)'><polygon points='0,200 150,80 300,200'/><polygon points='200,200 380,60 560,200'/><polygon points='420,200 560,110 600,200'/></g></svg>");
+  background-size: cover, 100% 220px;
+  background-repeat: no-repeat, repeat-x;
+  background-position: center, bottom;
+}
+
+/* Altitude — 669 / Pilots: subtle banding */
+.ambience-altitude {
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% 0%, rgba(255, 255, 255, 0.18), transparent 75%),
+    repeating-linear-gradient(
+      180deg,
+      transparent 0,
+      transparent 38px,
+      rgba(255, 255, 255, 0.05) 38px,
+      rgba(255, 255, 255, 0.05) 39px
+    );
+}
+
+/* Crystal — Yahalom: faceted diamond pattern */
+.ambience-crystal {
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% 0%, rgba(255, 255, 255, 0.12), transparent 70%),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'><g fill='none' stroke='rgba(197,165,114,0.18)' stroke-width='1'><polygon points='100,20 180,100 100,180 20,100'/><polygon points='100,60 140,100 100,140 60,100'/><line x1='20' y1='100' x2='180' y2='100'/><line x1='100' y1='20' x2='100' y2='180'/></g></svg>");
+  background-size: cover, 240px 240px;
+  background-repeat: no-repeat, repeat;
+}
+
+/* Desert — fallback warm grid */
+.ambience-desert {
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% 0%, rgba(255, 255, 255, 0.1), transparent 70%),
+    repeating-linear-gradient(45deg, transparent 0 14px, rgba(0, 0, 0, 0.06) 14px 15px);
+}
+
+/* Grid — generic combat service */
+.ambience-grid {
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% 0%, rgba(255, 255, 255, 0.08), transparent 70%),
+    linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+  background-size: cover, 40px 40px, 40px 40px;
+}
+
+/* Insignia watermark — sits behind text, large and faded */
+.insignia-watermark {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding-inline-start: 8%;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.12;
+  filter: grayscale(0.2) contrast(1.05);
+}
+
+.insignia-watermark img {
+  max-height: 130%;
+  width: auto;
+  transform: translateY(-2%);
+}
+
+/* Soft progress bar */
+.soft-bar {
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.08);
+  overflow: hidden;
+}
+
+.soft-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+}
+
+/* Page wrapper that hosts unit-tinted page background */
+.unit-page {
+  background:
+    radial-gradient(circle at 0% 0%, var(--unit-surface, #f1ede4) 0%, transparent 45%),
+    radial-gradient(circle at 100% 100%, rgba(255, 255, 255, 0.6) 0%, transparent 50%),
+    var(--paper);
+  min-height: 100vh;
 }
