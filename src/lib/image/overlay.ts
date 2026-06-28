@@ -136,9 +136,15 @@ export async function buildOverlayImageUrl({
 
     const admin = createAdminClient();
     const path = `overlays/${checkInId}/${Date.now()}.jpg`;
+    // Upload as a Blob, not a Node Buffer: in some serverless runtimes (Vercel)
+    // a Buffer body gets coerced through a UTF-8 string, which corrupts the
+    // binary JPEG (header bytes become U+FFFD) and makes Meta reject it.
+    const blob = new Blob([new Uint8Array(outputBuffer)], {
+      type: "image/jpeg",
+    });
     const { error } = await admin.storage
       .from("check-in-media")
-      .upload(path, outputBuffer, {
+      .upload(path, blob, {
         contentType: "image/jpeg",
         upsert: true,
         cacheControl: "3600",
