@@ -33,7 +33,16 @@ export async function buildOverlayImageUrl({
     }
     const inputBuffer = Buffer.from(await response.arrayBuffer());
 
-    const base = sharp(inputBuffer).rotate();
+    // Normalize: respect EXIF rotation, cap size, flatten transparency to white
+    // and re-encode so the output is always a clean JPEG (Instagram requires it).
+    const normalized = await sharp(inputBuffer)
+      .rotate()
+      .resize({ width: 1440, height: 1440, fit: "inside", withoutEnlargement: true })
+      .flatten({ background: "#ffffff" })
+      .jpeg({ quality: 90 })
+      .toBuffer();
+
+    const base = sharp(normalized);
     const metadata = await base.metadata();
     const width = metadata.width ?? 1080;
     const height = metadata.height ?? 1080;
@@ -67,10 +76,16 @@ export async function buildOverlayImageUrl({
         }
       </svg>`;
 
-    const outputBuffer = await base
-      .composite([{ input: Buffer.from(svg), top: 0, left: 0 }])
-      .jpeg({ quality: 88 })
-      .toBuffer();
+    let outputBuffer: Buffer;
+    try {
+      outputBuffer = await sharp(normalized)
+        .composite([{ input: Buffer.from(svg), top: 0, left: 0 }])
+        .jpeg({ quality: 88 })
+        .toBuffer();
+    } catch {
+      // If drawing text fails, still publish the clean JPEG.
+      outputBuffer = normalized;
+    }
 
     const admin = createAdminClient();
     const path = `overlays/${checkInId}/${Date.now()}.jpg`;
