@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { publishCheckInToMeta } from "@/lib/meta/publish";
 import { createClient } from "@/lib/supabase/server";
 import type { CheckInCtaType } from "@/types/database";
 
@@ -87,4 +88,58 @@ export async function updateCheckInStatus(
   revalidatePath("/check-ins");
   revalidatePath("/dashboard");
   return { success: true };
+}
+
+export async function publishCheckInToSocial(checkInId: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: "Not authenticated." };
+  }
+
+  const { data: checkIn } = await supabase
+    .from("check_ins")
+    .select("id, business_id, businesses!inner ( user_id )")
+    .eq("id", checkInId)
+    .maybeSingle();
+
+  if (!checkIn) {
+    return { error: "Check-in not found." };
+  }
+
+  const owner = Array.isArray(checkIn.businesses)
+    ? checkIn.businesses[0]?.user_id
+    : (checkIn.businesses as { user_id: string } | null)?.user_id;
+
+  if (owner !== user.id) {
+    return { error: "Not allowed." };
+  }
+
+  try {
+    const result = await publishCheckInToMeta(checkInId);
+    const parts: string[] = [];
+    if (result.facebook) {
+      parts.push(
+        result.facebook.ok
+          ? "Facebook: posted"
+          : `Facebook: ${result.facebook.error}`,
+      );
+    }
+    if (result.instagram) {
+      parts.push(
+        result.instagram.ok
+          ? "Instagram: posted"
+          : `Instagram: ${result.instagram.error}`,
+      );
+    }
+    if (parts.length === 0) {
+      return { error: "No Facebook/Instagram connection for this business." };
+    }
+    return { success: true, message: parts.join(" · ") };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Publish failed." };
+  }
 }

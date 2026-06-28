@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { hasGoogleBusinessConnection } from "@/lib/google-business/tokens";
+import { hasMetaConnection } from "@/lib/meta/tokens";
 import { createClient } from "@/lib/supabase/server";
 
 const providers = [
@@ -14,13 +15,15 @@ const providers = [
     id: "facebook",
     name: "Facebook Page",
     description: "Post check-ins to your Facebook page.",
-    available: false,
+    connectHref: "/api/meta/connect",
+    available: true,
   },
   {
     id: "instagram",
     name: "Instagram",
-    description: "Share field job photos to Instagram.",
-    available: false,
+    description: "Share field job photos to Instagram (via a linked Page).",
+    connectHref: "/api/meta/connect",
+    available: true,
   },
   {
     id: "youtube",
@@ -37,6 +40,7 @@ export default async function ConnectionsPage() {
   } = await supabase.auth.getUser();
 
   const isGoogleConnected = user ? await hasGoogleBusinessConnection(user.id) : false;
+  const isMetaConnected = user ? await hasMetaConnection(user.id) : false;
 
   const { data: businesses } = await supabase
     .from("businesses")
@@ -72,10 +76,23 @@ export default async function ConnectionsPage() {
               ? gmbConnections[0]
               : connections?.find((row) => row.provider === provider.id);
 
+          const isMeta = provider.id === "facebook" || provider.id === "instagram";
           const isConnected =
             provider.id === "gmb"
               ? isGoogleConnected || connection?.status === "connected"
-              : connection?.status === "connected";
+              : isMeta
+                ? isMetaConnected || connection?.status === "connected"
+                : connection?.status === "connected";
+
+          const connectHref =
+            "connectHref" in provider ? provider.connectHref : undefined;
+          const connectLabel = isConnected
+            ? provider.id === "gmb"
+              ? "Reconnect Google"
+              : "Manage / Reconnect"
+            : provider.id === "gmb"
+              ? "Connect Google Business"
+              : "Connect";
 
           return (
             <article
@@ -104,13 +121,23 @@ export default async function ConnectionsPage() {
                 </p>
               ) : null}
 
-              {provider.available && provider.id === "gmb" ? (
-                <Link
-                  href="/api/google-business/connect"
-                  className="mt-4 inline-flex h-9 items-center justify-center rounded-lg bg-slate-900 px-3 text-sm font-medium text-white hover:bg-slate-800"
-                >
-                  {isConnected ? "Reconnect Google" : "Connect Google Business"}
-                </Link>
+              {provider.available && connectHref ? (
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <Link
+                    href={connectHref}
+                    className="inline-flex h-9 items-center justify-center rounded-lg bg-slate-900 px-3 text-sm font-medium text-white hover:bg-slate-800"
+                  >
+                    {connectLabel}
+                  </Link>
+                  {isMeta && isMetaConnected ? (
+                    <Link
+                      href="/connections/meta"
+                      className="inline-flex h-9 items-center justify-center rounded-lg border border-slate-200 px-3 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                    >
+                      Choose pages
+                    </Link>
+                  ) : null}
+                </div>
               ) : (
                 <button
                   type="button"

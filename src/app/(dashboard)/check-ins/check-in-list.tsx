@@ -1,7 +1,7 @@
 "use client";
 
-import { useTransition } from "react";
-import { updateCheckInStatus } from "./actions";
+import { useState, useTransition } from "react";
+import { publishCheckInToSocial, updateCheckInStatus } from "./actions";
 import type { CheckIn } from "@/types/database";
 
 type Media = { image_url: string; media_type: "image" | "video"; sort_order: number };
@@ -23,6 +23,7 @@ function businessName(businesses: CheckInRow["businesses"]): string {
 
 export function CheckInList({ checkIns }: { checkIns: CheckInRow[] }) {
   const [isPending, startTransition] = useTransition();
+  const [socialStatus, setSocialStatus] = useState<Record<string, string>>({});
 
   if (checkIns.length === 0) {
     return (
@@ -108,7 +109,31 @@ export function CheckInList({ checkIns }: { checkIns: CheckInRow[] }) {
                   Archive
                 </button>
               ) : null}
+              <button
+                type="button"
+                disabled={isPending}
+                onClick={() => {
+                  setSocialStatus((prev) => ({
+                    ...prev,
+                    [checkIn.id]: "Publishing…",
+                  }));
+                  startTransition(async () => {
+                    const result = await publishCheckInToSocial(checkIn.id);
+                    setSocialStatus((prev) => ({
+                      ...prev,
+                      [checkIn.id]: result.error ?? result.message ?? "Done.",
+                    }));
+                  });
+                }}
+                className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100"
+              >
+                Publish to social
+              </button>
             </div>
+
+            {socialStatus[checkIn.id] ? (
+              <p className="text-xs text-slate-500">{socialStatus[checkIn.id]}</p>
+            ) : null}
           </li>
         );
       })}
