@@ -37,6 +37,31 @@ export default async function MetaSelectPage() {
     .eq("user_id", user!.id)
     .order("name");
 
+  const businessIds = businesses?.map((business) => business.id) ?? [];
+
+  const { data: existingConnections } =
+    businessIds.length > 0
+      ? await supabase
+          .from("platform_connections")
+          .select("business_id, provider, account_id, account_name")
+          .in("business_id", businessIds)
+          .eq("provider", "facebook")
+      : { data: [] };
+
+  const businessNameById = new Map(
+    (businesses ?? []).map((business) => [business.id, business.name]),
+  );
+
+  // page_id (facebook account_id) -> business name it is currently linked to
+  const linkedPageToBusiness = new Map(
+    (existingConnections ?? [])
+      .filter((row) => row.account_id)
+      .map((row) => [
+        row.account_id as string,
+        businessNameById.get(row.business_id) ?? "a business",
+      ]),
+  );
+
   let pages: Awaited<ReturnType<typeof getMetaPages>> = [];
   let fetchError: string | null = null;
 
@@ -89,6 +114,11 @@ export default async function MetaSelectPage() {
                       : "No linked Instagram account"}
                   </p>
                 </div>
+                {linkedPageToBusiness.has(page.id) ? (
+                  <span className="rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-800">
+                    Linked to {linkedPageToBusiness.get(page.id)}
+                  </span>
+                ) : null}
               </div>
 
               <form action={linkMetaPage} className="mt-3 flex flex-wrap gap-2">

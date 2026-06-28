@@ -60,6 +60,19 @@ export default async function ConnectionsPage() {
 
   const gmbConnections = connections?.filter((row) => row.provider === "gmb") ?? [];
 
+  const businessesWithMeta = (businesses ?? [])
+    .map((business) => {
+      const rows = connections?.filter(
+        (row) => row.business_id === business.id,
+      );
+      return {
+        ...business,
+        facebook: rows?.find((row) => row.provider === "facebook") ?? null,
+        instagram: rows?.find((row) => row.provider === "instagram") ?? null,
+      };
+    })
+    .filter((business) => business.facebook || business.instagram);
+
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <header>
@@ -151,6 +164,61 @@ export default async function ConnectionsPage() {
           );
         })}
       </div>
+
+      {isMetaConnected ? (
+        <section className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-slate-900">
+              Linked social accounts
+            </h2>
+            <Link
+              href="/connections/meta"
+              className="text-sm font-medium text-slate-900 underline"
+            >
+              Edit links
+            </Link>
+          </div>
+
+          {businessesWithMeta.length === 0 ? (
+            <p className="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-sm text-slate-600">
+              Facebook is connected, but no Page is linked to a business yet.{" "}
+              <Link
+                href="/connections/meta"
+                className="font-medium text-slate-900 underline"
+              >
+                Choose pages
+              </Link>
+            </p>
+          ) : (
+            <ul className="space-y-3">
+              {businessesWithMeta.map((business) => (
+                <li
+                  key={business.id}
+                  className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
+                >
+                  <p className="font-semibold text-slate-900">{business.name}</p>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                    <div className="flex items-center gap-2 rounded-lg bg-blue-50 px-3 py-2 text-sm">
+                      <span className="font-medium text-blue-800">Facebook</span>
+                      <span className="text-slate-600">
+                        {business.facebook?.account_name ?? "Not linked"}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 rounded-lg bg-pink-50 px-3 py-2 text-sm">
+                      <span className="font-medium text-pink-800">Instagram</span>
+                      <span className="text-slate-600">
+                        {business.instagram?.account_name
+                          ? `@${business.instagram.account_name}`
+                          : "Not linked"}
+                      </span>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      ) : null}
 
       {isGoogleConnected ? (
         <p className="text-sm text-slate-600">
