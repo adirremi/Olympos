@@ -273,8 +273,17 @@ export function CheckInForm({ businesses }: { businesses: Business[] }) {
       </button>
 
       {savedCheckInId ? (
-        <CheckInMediaUpload checkInId={savedCheckInId} />
-      ) : null}
+        <div className="space-y-2">
+          <p className="text-sm font-medium text-slate-900">
+            Add photos & videos
+          </p>
+          <CheckInMediaUpload checkInId={savedCheckInId} />
+        </div>
+      ) : (
+        <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4 text-center text-sm text-slate-500">
+          Save the check-in first, then upload photos &amp; videos here.
+        </div>
+      )}
     </form>
   );
 }
