@@ -1,86 +1,44 @@
-import fs from "fs";
-import os from "os";
-import path from "path";
+import { parse, type Font } from "opentype.js";
 import sharp from "sharp";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ROBOTO_BASE64 } from "./font";
 
-function escapeMarkup(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&apos;");
+// Parse the embedded font once. We convert text to vector <path> geometry, so
+// rendering needs NO system fonts / Pango / fontconfig — librsvg always draws
+// paths. This is the only approach that reliably shows text on serverless hosts
+// (sharp's prebuilt binary lacks text support; librsvg ignores @font-face).
+let cachedFont: Font | null = null;
+function getFont(): Font {
+  if (cachedFont) {
+    return cachedFont;
+  }
+  const raw = Buffer.from(ROBOTO_BASE64, "base64");
+  cachedFont = parse(
+    raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength),
+  );
+  return cachedFont;
 }
 
-// librsvg (used by sharp for SVG) ignores @font-face and serverless hosts ship
-// no system fonts, so SVG <text> renders nothing. Instead we render text with
-// sharp's Pango path pointed at an explicit font file written to /tmp, with a
-// minimal fontconfig so it's fast and error-free.
-let fontFilePath: string | null = null;
-function ensureFont(): string {
-  if (fontFilePath) {
-    return fontFilePath;
-  }
-  const dir = path.join(os.tmpdir(), "fc-fonts");
-  fs.mkdirSync(dir, { recursive: true });
-  const fontPath = path.join(dir, "Roboto.ttf");
-  if (!fs.existsSync(fontPath)) {
-    fs.writeFileSync(fontPath, Buffer.from(ROBOTO_BASE64, "base64"));
-  }
-  const cacheDir = path.join(os.tmpdir(), "fc-cache");
-  fs.mkdirSync(cacheDir, { recursive: true });
-  const confPath = path.join(os.tmpdir(), "fc-fonts.conf");
-  if (!fs.existsSync(confPath)) {
-    fs.writeFileSync(
-      confPath,
-      `<?xml version="1.0"?><!DOCTYPE fontconfig SYSTEM "fonts.dtd"><fontconfig><dir>${dir}</dir><cachedir>${cacheDir}</cachedir></fontconfig>`,
-    );
-  }
-  process.env.FONTCONFIG_FILE = confPath;
-  fontFilePath = fontPath;
-  return fontPath;
-}
-
-// Builds a rounded translucent badge with white text, sized to fit the text.
-async function makeLabel(
+// Builds a rounded translucent badge with white text (drawn as vector paths).
+function makeLabel(
   text: string,
   fontSize: number,
-  fontPath: string,
-): Promise<{ buffer: Buffer; width: number; height: number }> {
-  const textImage = await sharp({
-    text: {
-      text: `<span foreground="white" size="${Math.round(fontSize * 1024)}">${escapeMarkup(text)}</span>`,
-      fontfile: fontPath,
-      font: "Roboto Medium",
-      rgba: true,
-      dpi: 72,
-    },
-  })
-    .png()
-    .toBuffer();
-
-  const textMeta = await sharp(textImage).metadata();
-  const textWidth = textMeta.width ?? 0;
-  const textHeight = textMeta.height ?? 0;
+): { buffer: Buffer; width: number; height: number } {
+  const font = getFont();
+  const glyphPath = font.getPath(text, 0, fontSize, fontSize);
+  const pathData = glyphPath.toPathData(2);
+  const advance = font.getAdvanceWidth(text, fontSize);
 
   const padX = Math.round(fontSize * 0.5);
   const padY = Math.round(fontSize * 0.32);
-  const boxWidth = textWidth + padX * 2;
-  const boxHeight = textHeight + padY * 2;
+  const boxWidth = Math.ceil(advance) + padX * 2;
+  const boxHeight = Math.round(fontSize * 1.32) + padY * 2;
   const radius = Math.round(boxHeight / 5);
+  const textTop = padY + Math.round(fontSize * 0.15);
 
-  const rect = Buffer.from(
-    `<svg width="${boxWidth}" height="${boxHeight}" xmlns="http://www.w3.org/2000/svg"><rect x="0" y="0" width="${boxWidth}" height="${boxHeight}" rx="${radius}" ry="${radius}" fill="black" fill-opacity="0.45"/></svg>`,
-  );
+  const svg = `<svg width="${boxWidth}" height="${boxHeight}" xmlns="http://www.w3.org/2000/svg"><rect x="0" y="0" width="${boxWidth}" height="${boxHeight}" rx="${radius}" ry="${radius}" fill="black" fill-opacity="0.45"/><g transform="translate(${padX},${textTop})"><path d="${pathData}" fill="white"/></g></svg>`;
 
-  const buffer = await sharp(rect)
-    .composite([{ input: textImage, left: padX, top: padY }])
-    .png()
-    .toBuffer();
-
-  return { buffer, width: boxWidth, height: boxHeight };
+  return { buffer: Buffer.from(svg), width: boxWidth, height: boxHeight };
 }
 
 type OverlayInput = {
@@ -156,14 +114,13 @@ export async function buildOverlayImageUrl({
     // JPEG so publishing succeeds.
     let outputBuffer = canvasBuffer;
     try {
-      const fontPath = ensureFont();
       const fontSize = Math.max(22, Math.round(width / 26));
       const margin = Math.round(width / 36);
       const composites: Parameters<ReturnType<typeof sharp>["composite"]>[0] =
         [];
 
       if (businessName) {
-        const label = await makeLabel(businessName, fontSize, fontPath);
+        const label = makeLabel(businessName, fontSize);
         composites.push({
           input: label.buffer,
           top: margin,
@@ -172,11 +129,7 @@ export async function buildOverlayImageUrl({
       }
 
       if (locationLabel) {
-        const label = await makeLabel(
-          locationLabel,
-          Math.round(fontSize * 0.85),
-          fontPath,
-        );
+        const label = makeLabel(locationLabel, Math.round(fontSize * 0.85));
         composites.push({
           input: label.buffer,
           top: Math.max(margin, height - label.height - margin),
