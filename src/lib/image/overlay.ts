@@ -10,6 +10,22 @@ function escapeXml(value: string): string {
     .replace(/'/g, "&apos;");
 }
 
+// A small rounded label (dark translucent background + white text) sized to fit
+// the text. Inline attributes only (no CSS classes) for reliable rasterization.
+function makeLabel(text: string, fontSize: number): Buffer {
+  const padX = Math.round(fontSize * 0.5);
+  const padY = Math.round(fontSize * 0.35);
+  const charWidth = fontSize * 0.62;
+  const boxWidth = Math.round(text.length * charWidth + padX * 2);
+  const boxHeight = Math.round(fontSize + padY * 2);
+  const baseline = Math.round(padY + fontSize * 0.82);
+  const radius = Math.round(boxHeight / 5);
+
+  const svg = `<svg width="${boxWidth}" height="${boxHeight}" xmlns="http://www.w3.org/2000/svg"><rect x="0" y="0" width="${boxWidth}" height="${boxHeight}" rx="${radius}" ry="${radius}" fill="black" fill-opacity="0.45"/><text x="${padX}" y="${baseline}" font-family="Arial, Helvetica, sans-serif" font-size="${fontSize}" font-weight="bold" fill="white">${escapeXml(text)}</text></svg>`;
+
+  return Buffer.from(svg);
+}
+
 type OverlayInput = {
   imageUrl: string;
   businessName: string;
@@ -17,9 +33,9 @@ type OverlayInput = {
   checkInId: string;
 };
 
-// Draws the business name (top-right) and city/region (bottom-left) onto the
-// image, uploads the result to storage, and returns its public URL.
-// Returns the original URL if anything fails (best-effort, never blocks publishing).
+// Normalizes the image to a clean JPEG with an Instagram-valid aspect ratio,
+// draws the business name (top-right) and city/region (bottom-left), uploads
+// the result, and returns its public URL. Returns the original URL on failure.
 export async function buildOverlayImageUrl({
   imageUrl,
   businessName,
@@ -33,8 +49,6 @@ export async function buildOverlayImageUrl({
     }
     const inputBuffer = Buffer.from(await response.arrayBuffer());
 
-    // Normalize: respect EXIF rotation, cap size, flatten transparency to white
-    // and re-encode so the output is always a clean JPEG (Instagram requires it).
     const normalized = await sharp(inputBuffer)
       .rotate()
       .resize({ width: 1440, height: 1440, fit: "inside", withoutEnlargement: true })
@@ -47,7 +61,6 @@ export async function buildOverlayImageUrl({
     const srcHeight = normMeta.height ?? 1080;
 
     // Instagram feed accepts aspect ratios from 4:5 (0.8) to 1.91:1.
-    // Pad out-of-range images onto a blurred background so nothing is cropped.
     const MIN_RATIO = 0.8;
     const MAX_RATIO = 1.91;
     const ratio = srcWidth / srcHeight;
@@ -56,15 +69,15 @@ export async function buildOverlayImageUrl({
     let width = srcWidth;
     let height = srcHeight;
 
-    if (ratio < MIN_RATIO || ratio > MAX_RATIO) {
-      if (ratio < MIN_RATIO) {
-        width = Math.round(srcHeight * MIN_RATIO);
-        height = srcHeight;
-      } else {
-        width = srcWidth;
-        height = Math.round(srcWidth / MAX_RATIO);
-      }
+    if (ratio < MIN_RATIO) {
+      width = Math.round(srcHeight * MIN_RATIO);
+      height = srcHeight;
+    } else if (ratio > MAX_RATIO) {
+      width = srcWidth;
+      height = Math.round(srcWidth / MAX_RATIO);
+    }
 
+    if (width !== srcWidth || height !== srcHeight) {
       const background = await sharp(normalized)
         .resize({ width, height, fit: "cover" })
         .blur(40)
@@ -72,8 +85,8 @@ export async function buildOverlayImageUrl({
         .jpeg({ quality: 80 })
         .toBuffer();
 
-      const left = Math.round((width - srcWidth) / 2);
-      const top = Math.round((height - srcHeight) / 2);
+      const left = Math.max(0, Math.round((width - srcWidth) / 2));
+      const top = Math.max(0, Math.round((height - srcHeight) / 2));
 
       canvasBuffer = await sharp(background)
         .composite([{ input: normalized, top, left }])
@@ -81,44 +94,41 @@ export async function buildOverlayImageUrl({
         .toBuffer();
     }
 
-    const fontSize = Math.max(24, Math.round(width / 24));
-    const pad = Math.round(width / 36);
-    const strokeWidth = Math.max(2, Math.round(fontSize / 12));
+    const fontSize = Math.max(22, Math.round(width / 26));
+    const margin = Math.round(width / 36);
 
-    const nameText = escapeXml(businessName);
-    const locText = locationLabel ? escapeXml(locationLabel) : "";
+    const composites: Parameters<ReturnType<typeof sharp>["composite"]>[0] = [];
 
-    const svg = `
-      <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
-        <style>
-          .label {
-            font-family: Arial, Helvetica, sans-serif;
-            font-weight: 700;
-            fill: #ffffff;
-            stroke: rgba(0,0,0,0.55);
-            stroke-width: ${strokeWidth};
-            paint-order: stroke;
-          }
-        </style>
-        <text x="${width - pad}" y="${pad + fontSize}" text-anchor="end"
-          font-size="${fontSize}" class="label">${nameText}</text>
-        ${
-          locText
-            ? `<text x="${pad}" y="${height - pad}" text-anchor="start"
-                font-size="${Math.round(fontSize * 0.8)}" class="label">${locText}</text>`
-            : ""
-        }
-      </svg>`;
+    if (businessName) {
+      const label = makeLabel(businessName, fontSize);
+      const meta = await sharp(label).metadata();
+      composites.push({
+        input: label,
+        top: margin,
+        left: Math.max(margin, width - (meta.width ?? 0) - margin),
+      });
+    }
 
-    let outputBuffer: Buffer;
-    try {
-      outputBuffer = await sharp(canvasBuffer)
-        .composite([{ input: Buffer.from(svg), top: 0, left: 0 }])
-        .jpeg({ quality: 88 })
-        .toBuffer();
-    } catch {
-      // If drawing text fails, still publish the clean (padded) JPEG.
-      outputBuffer = canvasBuffer;
+    if (locationLabel) {
+      const label = makeLabel(locationLabel, Math.round(fontSize * 0.85));
+      const meta = await sharp(label).metadata();
+      composites.push({
+        input: label,
+        top: Math.max(margin, height - (meta.height ?? 0) - margin),
+        left: margin,
+      });
+    }
+
+    let outputBuffer = canvasBuffer;
+    if (composites.length > 0) {
+      try {
+        outputBuffer = await sharp(canvasBuffer)
+          .composite(composites)
+          .jpeg({ quality: 88 })
+          .toBuffer();
+      } catch {
+        outputBuffer = canvasBuffer;
+      }
     }
 
     const admin = createAdminClient();
