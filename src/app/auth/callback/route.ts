@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { acceptPendingInvitations } from "@/lib/invitations";
 import { createClient } from "@/lib/supabase/server";
 
 export async function GET(request: Request) {
@@ -14,17 +15,9 @@ export async function GET(request: Request) {
     } = await supabase.auth.getUser();
 
     if (user) {
-      const { data: profile } = await supabase
-        .from("user_profile")
-        .select("user_id")
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      if (profile) {
-        return NextResponse.redirect(new URL("/dashboard", requestUrl.origin));
-      }
+      await acceptPendingInvitations(user.id, user.email);
     }
   }
 
-  return NextResponse.redirect(new URL("/onboarding", requestUrl.origin));
+  return NextResponse.redirect(new URL("/dashboard", requestUrl.origin));
 }

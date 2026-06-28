@@ -19,9 +19,9 @@ export function GoogleButton() {
     <button
       type="button"
       onClick={handleGoogleLogin}
-      className="brutal-button is-blood w-full text-lg"
+      className="flex h-11 w-full items-center justify-center rounded-lg bg-slate-900 text-sm font-medium text-white transition-colors hover:bg-slate-800"
     >
-      התחבר עם גוגל
+      Continue with Google
     </button>
   );
 }

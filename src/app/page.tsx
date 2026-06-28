@@ -1,130 +1,48 @@
 import Link from "next/link";
-import { AccountStrip } from "@/components/account-strip";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
-export default async function Home() {
+export default async function HomePage() {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  const isLoggedIn = Boolean(user);
+
+  if (user) {
+    redirect("/dashboard");
+  }
 
   return (
-    <main className="min-h-screen px-5 py-10">
-      <section className="mx-auto max-w-6xl space-y-7">
-        <AccountStrip />
+    <main className="flex min-h-screen flex-col items-center justify-center px-6">
+      <div className="w-full max-w-lg space-y-8 text-center">
+        <div className="space-y-3">
+          <p className="text-sm font-medium uppercase tracking-wider text-slate-500">
+            Field jobs SaaS
+          </p>
+          <h1 className="text-4xl font-semibold tracking-tight text-slate-900 sm:text-5xl">
+            Log check-ins. Show your work on the map.
+          </h1>
+          <p className="text-base text-slate-600">
+            A dashboard for local businesses to track field jobs, upload
+            photos, and publish to social platforms.
+          </p>
+        </div>
 
-        <header className="brutal-border brutal-shadow-ink relative bg-paper p-8">
-          <div className="absolute -inset-[3px] border border-blood pointer-events-none" />
-          <div className="font-stencil mb-5 flex flex-wrap items-center justify-between gap-3 border-b-2 border-ink pb-3 text-sm">
-            <span className="font-bold text-blood">אולימפוס · הכנה לקרב</span>
-            <span className="flex items-center gap-2">
-              <span className="pulse-dot" />
-              מערכת פעילה
-            </span>
-          </div>
-
-          <div className="space-y-3">
-            <h1 className="font-display text-6xl leading-[0.85] md:text-[120px]">
-              <span className="text-blood">לקראת</span>
-              <br />
-              <span className="text-ink">הגיוס.</span>
-            </h1>
-            <p className="font-stencil border-r-4 border-blood pr-3 text-lg md:text-xl">
-              ליווי אישי · אימון יומי · WhatsApp · מאמן אישי
-            </p>
-          </div>
-        </header>
-
-        <section className="brutal-border brutal-shadow-blood grid bg-ink md:grid-cols-3">
-          <Stat number="3" label="הקבצות כושר" accent="blood" />
-          <Stat number="∞" label="בלי תירוצים" accent="ink" />
-          <Stat number="78" label="יעד יומי" accent="blood" />
-        </section>
-
-        <section className="grid gap-5 md:grid-cols-2">
-          <div className="brutal-card p-7">
-            <p className="font-stencil mb-2 text-sm text-steel">01 · המוצר</p>
-            <h2 className="font-display text-3xl md:text-4xl">
-              חניך → תוכנית → ביצוע
-            </h2>
-            <p className="mt-3 leading-7">
-              בוחר יעד גיוס, ממלא שאלון, מקבל תוכנית אישית, מדווח ביצוע
-              בדשבורד או ב־WhatsApp. המאמן רואה הכל.
-            </p>
-          </div>
-          <div className="brutal-card p-7">
-            <p className="font-stencil mb-2 text-sm text-steel">02 · המנוע</p>
-            <h2 className="font-display text-3xl md:text-4xl">3 הודעות ביום</h2>
-            <p className="mt-3 leading-7">
-              בוקר טוב עם האימון, תזכורת לפני, דיווח אחרי. תשובת חניך =
-              עדכון אוטומטי ב־DB.
-            </p>
-          </div>
-        </section>
-
-        <section className="brutal-border relative overflow-hidden bg-ink p-12 text-paper">
-          <div className="marquee-bg">
-            <div className="marquee-track">
-              אולימפוס · אולימפוס · אולימפוס · אולימפוס ·
-            </div>
-          </div>
-          <div className="relative space-y-5 text-center">
-            <h2 className="font-display text-4xl leading-[0.95] md:text-6xl">
-              לא עוד תוכנית
-              <br />
-              <span className="text-blood">תוכנית בשבילך.</span>
-            </h2>
-            <div className="flex flex-wrap items-center justify-center gap-4 pt-3">
-              {isLoggedIn ? (
-                <Link href="/dashboard" className="brutal-button is-blood">
-                  לפאנל האישי
-                </Link>
-              ) : (
-                <>
-                  <Link href="/login" className="brutal-button is-blood">
-                    התחלת תהליך
-                  </Link>
-                  <Link href="/onboarding" className="brutal-button is-paper">
-                    לשאלון
-                  </Link>
-                </>
-              )}
-            </div>
-          </div>
-        </section>
-
-        <footer className="font-stencil flex flex-wrap items-center justify-between gap-3 border-t-[3px] border-ink pt-5 text-sm">
-          <span>אולימפוס · 2026</span>
-          <span className="border-[3px] border-blood px-3 py-1 text-blood">
-            אין ויתורים
-          </span>
-          <span>בית · פרוטוקול · שטח</span>
-        </footer>
-      </section>
-    </main>
-  );
-}
-
-function Stat({
-  number,
-  label,
-  accent,
-}: {
-  number: string;
-  label: string;
-  accent: "blood" | "ink";
-}) {
-  return (
-    <div className="border-l-2 border-ink bg-paper p-6 text-center first:border-l-0">
-      <div
-        className={`font-display text-6xl leading-none ${
-          accent === "blood" ? "text-blood" : "text-ink"
-        }`}
-      >
-        {number}
+        <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+          <Link
+            href="/login"
+            className="inline-flex h-11 items-center justify-center rounded-lg bg-slate-900 px-6 text-sm font-medium text-white hover:bg-slate-800"
+          >
+            Sign in with Google
+          </Link>
+          <Link
+            href="/dashboard"
+            className="inline-flex h-11 items-center justify-center rounded-lg border border-slate-200 bg-white px-6 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            Go to dashboard
+          </Link>
+        </div>
       </div>
-      <div className="font-stencil mt-2 text-xs text-steel">{label}</div>
-    </div>
+    </main>
   );
 }
