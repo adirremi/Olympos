@@ -116,6 +116,47 @@ export async function publishPhotoToFacebookPage(
   return payload.post_id ?? payload.id ?? "";
 }
 
+// Polls a freshly created Instagram media container until it finishes
+// processing (or fails / times out), so media_publish doesn't race it.
+async function waitForInstagramContainer(
+  containerId: string,
+  pageToken: string,
+): Promise<void> {
+  const maxAttempts = 12;
+  const delayMs = 2000;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const params = new URLSearchParams({
+      fields: "status_code,status",
+      access_token: pageToken,
+    });
+    const response = await fetch(
+      `${META_GRAPH_BASE}/${containerId}?${params.toString()}`,
+    );
+    const payload = (await response.json()) as {
+      status_code?: string;
+      status?: string;
+      error?: MetaErrorPayload;
+    };
+
+    if (payload.status_code === "FINISHED") {
+      return;
+    }
+    if (payload.status_code === "ERROR" || payload.status_code === "EXPIRED") {
+      throw new Error(
+        formatMetaError(
+          payload.error,
+          `Instagram could not process the image (${payload.status ?? payload.status_code}).`,
+        ),
+      );
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+  }
+
+  // Fall through: attempt to publish anyway after the wait budget is spent.
+}
+
 // Publish a single image to Instagram: create a media container, then publish.
 export async function publishImageToInstagram(
   igUserId: string,
@@ -144,6 +185,10 @@ export async function publishImageToInstagram(
       formatMetaError(createPayload.error, "Instagram media creation failed."),
     );
   }
+
+  // Instagram processes the container asynchronously (it downloads the image).
+  // Publishing before it is FINISHED fails with "media not ready" (code 9007).
+  await waitForInstagramContainer(createPayload.id, pageToken);
 
   const publishBody = new URLSearchParams({
     creation_id: createPayload.id,
