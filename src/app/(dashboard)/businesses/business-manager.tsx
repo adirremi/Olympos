@@ -5,6 +5,9 @@ import { createBusiness, deleteBusiness, inviteBusinessMember, revokeInvitation 
 import type { Business, BusinessInvitation } from "@/types/database";
 
 type BusinessWithInvites = Business & {
+  source?: string;
+  address?: string | null;
+  gmb_location_id?: string | null;
   business_invitations: BusinessInvitation[];
 };
 
@@ -80,7 +83,17 @@ function BusinessCard({ business }: { business: BusinessWithInvites }) {
     <li className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-lg font-semibold text-slate-900">{business.name}</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-semibold text-slate-900">{business.name}</h2>
+            {business.source === "google" ? (
+              <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800">
+                Google
+              </span>
+            ) : null}
+          </div>
+          {business.address ? (
+            <p className="mt-1 text-sm text-slate-600">{business.address}</p>
+          ) : null}
           <p className="mt-1 text-xs text-slate-500">
             Created {new Date(business.created_at).toLocaleDateString()}
           </p>

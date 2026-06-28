@@ -1,11 +1,23 @@
 import { BusinessManager } from "./business-manager";
+import { GoogleBusinessImport } from "./google-import";
+import { hasGoogleBusinessConnection } from "@/lib/google-business/tokens";
 import { createClient } from "@/lib/supabase/server";
 
-export default async function BusinessesPage() {
+type BusinessesPageProps = {
+  searchParams: Promise<{
+    google?: string;
+    google_error?: string;
+  }>;
+};
+
+export default async function BusinessesPage({ searchParams }: BusinessesPageProps) {
+  const params = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  const isGoogleConnected = user ? await hasGoogleBusinessConnection(user.id) : false;
 
   const { data: businesses } = await supabase
     .from("businesses")
@@ -14,6 +26,9 @@ export default async function BusinessesPage() {
       id,
       user_id,
       name,
+      source,
+      address,
+      gmb_location_id,
       created_at,
       business_invitations (
         id,
@@ -37,9 +52,15 @@ export default async function BusinessesPage() {
       <header>
         <h1 className="text-2xl font-semibold text-slate-900">My Businesses</h1>
         <p className="mt-1 text-sm text-slate-600">
-          Create businesses, invite teammates, and connect social accounts later.
+          Import from Google Business or add manually.
         </p>
       </header>
+
+      <GoogleBusinessImport
+        isConnected={isGoogleConnected}
+        googleStatus={params.google}
+        googleError={params.google_error}
+      />
 
       <BusinessManager businesses={businesses ?? []} />
     </div>

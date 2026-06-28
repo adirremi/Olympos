@@ -1,8 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { fetchGoogleBusinessLocations } from "@/lib/google-business/api";
+import { getValidGoogleAccessToken } from "@/lib/google-business/tokens";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import type { GmbLocation } from "@/lib/google-business/api";
 
 export async function createBusiness(name: string) {
   const supabase = await createClient();
@@ -137,4 +140,94 @@ export async function revokeInvitation(invitationId: string) {
 
   revalidatePath("/businesses");
   return { success: true };
+}
+
+export async function listGoogleBusinessLocations() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: "Not authenticated." };
+  }
+
+  const accessToken = await getValidGoogleAccessToken(user.id);
+  if (!accessToken) {
+    return { error: "Connect Google Business first." };
+  }
+
+  try {
+    const locations = await fetchGoogleBusinessLocations(accessToken);
+    return { data: locations };
+  } catch (listError) {
+    return {
+      error:
+        listError instanceof Error
+          ? listError.message
+          : "Failed to load Google Business locations.",
+    };
+  }
+}
+
+export async function importGoogleBusinessLocation(location: GmbLocation) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: "Not authenticated." };
+  }
+
+  const { data: existing } = await supabase
+    .from("businesses")
+    .select("id")
+    .eq("gmb_location_id", location.locationId)
+    .maybeSingle();
+
+  if (existing) {
+    return { error: "This Google location is already imported." };
+  }
+
+  const { data: business, error } = await supabase
+    .from("businesses")
+    .insert({
+      user_id: user.id,
+      name: location.locationName,
+      source: "google",
+      address: location.address,
+      gmb_account_id: location.accountId,
+      gmb_location_id: location.locationId,
+      google_place_id: location.placeId,
+    })
+    .select("id, name")
+    .single();
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  await supabase.from("platform_connections").upsert(
+    {
+      business_id: business.id,
+      provider: "gmb",
+      account_id: location.locationId,
+      account_name: location.locationName,
+      status: "connected",
+      metadata: {
+        accountId: location.accountId,
+        accountName: location.accountName,
+        address: location.address,
+        placeId: location.placeId,
+      },
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "business_id,provider" },
+  );
+
+  revalidatePath("/businesses");
+  revalidatePath("/dashboard");
+  revalidatePath("/connections");
+  return { data: business };
 }

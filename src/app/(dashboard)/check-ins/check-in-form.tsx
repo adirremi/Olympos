@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
+import { CheckInMediaUpload } from "@/components/check-in-media-upload";
 import { createCheckIn } from "./actions";
 import type { AddressSelection } from "@/types/location";
 import type { Business, CheckInCtaType } from "@/types/database";
@@ -15,6 +16,7 @@ const ctaOptions: { value: CheckInCtaType; label: string }[] = [
 
 export function CheckInForm({ businesses }: { businesses: Business[] }) {
   const [selection, setSelection] = useState<AddressSelection | null>(null);
+  const [savedCheckInId, setSavedCheckInId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -56,9 +58,9 @@ export function CheckInForm({ businesses }: { businesses: Business[] }) {
             return;
           }
 
-          setMessage("Check-in saved as draft.");
+          setSavedCheckInId(result.data?.id ?? null);
+          setMessage("Check-in saved. Add photos or videos below.");
           setSelection(null);
-          event.currentTarget.reset();
         });
       }}
     >
@@ -136,6 +138,10 @@ export function CheckInForm({ businesses }: { businesses: Business[] }) {
       >
         {isPending ? "Saving…" : "Save check-in"}
       </button>
+
+      {savedCheckInId ? (
+        <CheckInMediaUpload checkInId={savedCheckInId} />
+      ) : null}
     </form>
   );
 }
