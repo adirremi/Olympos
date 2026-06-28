@@ -47,7 +47,7 @@ function ensureGoogleMaps(): Promise<void> {
       resolve();
 
     const script = document.createElement("script");
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&v=weekly&loading=async&callback=${callbackName}`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&v=weekly&loading=async&language=en&region=US&callback=${callbackName}`;
     script.async = true;
     script.defer = true;
     script.dataset.googleMaps = "true";

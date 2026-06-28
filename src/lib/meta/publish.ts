@@ -89,6 +89,26 @@ export async function publishCheckInToMeta(
     .filter(Boolean)
     .join("\n\n");
 
+  async function logPublication(
+    provider: MetaPlatform,
+    outcome: { ok: boolean; id?: string; error?: string },
+  ) {
+    // Best-effort; never block on logging.
+    try {
+      await admin.from("check_in_publications").insert({
+        check_in_id: checkInId,
+        provider,
+        status: outcome.ok ? "success" : "error",
+        external_id: outcome.id ?? null,
+        error: outcome.error ?? null,
+        caption,
+        image_url: postImageUrl ?? null,
+      });
+    } catch {
+      // ignore logging failures (e.g. migration 010 not run yet)
+    }
+  }
+
   for (const connection of rows) {
     const { data: secret } = await admin
       .from("platform_connection_secrets")
@@ -122,6 +142,7 @@ export async function publishCheckInToMeta(
           error: error instanceof Error ? error.message : "Failed.",
         };
       }
+      await logPublication("facebook", result.facebook);
     }
 
     if (connection.provider === "instagram" && connection.account_id) {
@@ -130,6 +151,7 @@ export async function publishCheckInToMeta(
           ok: false,
           error: "Instagram requires at least one image on the check-in.",
         };
+        await logPublication("instagram", result.instagram);
         continue;
       }
       try {
@@ -146,6 +168,7 @@ export async function publishCheckInToMeta(
           error: error instanceof Error ? error.message : "Failed.",
         };
       }
+      await logPublication("instagram", result.instagram);
     }
   }
 
