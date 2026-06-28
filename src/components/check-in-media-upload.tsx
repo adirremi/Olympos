@@ -14,12 +14,14 @@ function mediaTypeFromMime(mime: string): "image" | "video" {
 }
 
 const MAX_DIMENSION = 1920;
+const WEBP_QUALITY = 0.82;
 const JPEG_QUALITY = 0.85;
 
 // Compresses an image in the browser before upload: corrects EXIF orientation,
-// caps the longest side, and re-encodes as JPEG. We store only this optimized
-// version, so there is never a heavy original to clean up later. Videos and
-// non-images are returned unchanged.
+// caps the longest side, and re-encodes as WebP (much smaller than JPEG) with a
+// JPEG fallback for browsers that can't encode WebP. We store only this
+// optimized version, so there is never a heavy original to clean up later.
+// Videos, GIFs, and non-images are returned unchanged.
 async function compressImage(file: File): Promise<File> {
   if (!file.type.startsWith("image/") || file.type === "image/gif") {
     return file;
@@ -48,16 +50,28 @@ async function compressImage(file: File): Promise<File> {
     ctx.drawImage(bitmap, 0, 0, targetWidth, targetHeight);
     bitmap.close();
 
-    const blob = await new Promise<Blob | null>((resolve) =>
-      canvas.toBlob(resolve, "image/jpeg", JPEG_QUALITY),
+    // Prefer WebP; browsers that don't support encoding it return a PNG blob
+    // (wrong type), so we verify and fall back to JPEG.
+    let blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, "image/webp", WEBP_QUALITY),
     );
+    let extension = "webp";
+    let mime = "image/webp";
+
+    if (!blob || blob.type !== "image/webp") {
+      blob = await new Promise<Blob | null>((resolve) =>
+        canvas.toBlob(resolve, "image/jpeg", JPEG_QUALITY),
+      );
+      extension = "jpg";
+      mime = "image/jpeg";
+    }
 
     if (!blob || blob.size >= file.size) {
       return file;
     }
 
-    const newName = file.name.replace(/\.[^.]+$/, "") + ".jpg";
-    return new File([blob], newName, { type: "image/jpeg" });
+    const newName = file.name.replace(/\.[^.]+$/, "") + "." + extension;
+    return new File([blob], newName, { type: mime });
   } catch {
     return file;
   }

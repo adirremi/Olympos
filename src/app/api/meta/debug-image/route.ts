@@ -74,7 +74,7 @@ export async function GET(request: Request) {
 
   // Run the real overlay pipeline and inspect the result.
   try {
-    const overlayUrl = await buildOverlayImageUrl({
+    const { url: overlayUrl } = await buildOverlayImageUrl({
       imageUrl,
       businessName: "Debug Business",
       locationLabel: "New York, NY",

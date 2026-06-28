@@ -91,13 +91,16 @@ export async function publishCheckInToMeta(
 
   // Build the overlay image once and reuse for both platforms.
   let postImageUrl = originalImageUrl;
+  let overlayPath: string | null = null;
   if (originalImageUrl) {
-    postImageUrl = await buildOverlayImageUrl({
+    const overlay = await buildOverlayImageUrl({
       imageUrl: originalImageUrl,
       businessName: businessName ?? "",
       locationLabel: label,
       checkInId,
     });
+    postImageUrl = overlay.url;
+    overlayPath = overlay.path;
   }
 
   const { data: connections } = await admin
@@ -194,6 +197,17 @@ export async function publishCheckInToMeta(
         };
       }
       await logPublication("instagram", result.instagram);
+    }
+  }
+
+  // Meta has fetched the image by now (FB downloads during /photos, IG during
+  // container processing which we waited for), so the overlay is no longer
+  // needed. Delete it to avoid keeping a second copy of every image.
+  if (overlayPath) {
+    try {
+      await admin.storage.from("check-in-media").remove([overlayPath]);
+    } catch {
+      // best-effort cleanup
     }
   }
 

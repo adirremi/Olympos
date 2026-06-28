@@ -48,6 +48,12 @@ type OverlayInput = {
   checkInId: string;
 };
 
+// `url` is the image to hand to Meta. `path` is the storage path of the overlay
+// we created (null when we fell back to the original), so the caller can delete
+// it after publishing — the overlay is only needed transiently while Meta
+// fetches it, so we don't keep a second copy of every image around.
+export type OverlayResult = { url: string; path: string | null };
+
 // Normalizes the image to a clean JPEG with an Instagram-valid aspect ratio,
 // draws the business name (top-right) and city/region (bottom-left), uploads
 // the result, and returns its public URL. Returns the original URL on failure.
@@ -56,11 +62,11 @@ export async function buildOverlayImageUrl({
   businessName,
   locationLabel,
   checkInId,
-}: OverlayInput): Promise<string> {
+}: OverlayInput): Promise<OverlayResult> {
   try {
     const response = await fetch(imageUrl);
     if (!response.ok) {
-      return imageUrl;
+      return { url: imageUrl, path: null };
     }
     const inputBuffer = Buffer.from(await response.arrayBuffer());
 
@@ -164,12 +170,12 @@ export async function buildOverlayImageUrl({
       });
 
     if (error) {
-      return imageUrl;
+      return { url: imageUrl, path: null };
     }
 
     const { data } = admin.storage.from("check-in-media").getPublicUrl(path);
-    return data.publicUrl;
+    return { url: data.publicUrl, path };
   } catch {
-    return imageUrl;
+    return { url: imageUrl, path: null };
   }
 }
