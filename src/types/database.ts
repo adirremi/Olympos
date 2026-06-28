@@ -12,6 +12,7 @@ export type Business = {
   user_id: string;
   name: string;
   created_at: string;
+  keywords?: string[];
 };
 
 export type CheckInStatus = "draft" | "published" | "archived";

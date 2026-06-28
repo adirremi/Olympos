@@ -16,6 +16,7 @@ type CreateCheckInInput = {
   country?: string | null;
   description?: string;
   ctaType: CheckInCtaType;
+  keywords?: string[];
 };
 
 export async function createCheckIn(input: CreateCheckInInput) {
@@ -53,7 +54,8 @@ export async function createCheckIn(input: CreateCheckInInput) {
     status: "draft" as const,
   };
 
-  // Try with address components; fall back if migration 008 hasn't run.
+  // Try with address components + keywords; fall back if migrations 008/009
+  // haven't run yet.
   let inserted = await supabase
     .from("check_ins")
     .insert({
@@ -61,6 +63,7 @@ export async function createCheckIn(input: CreateCheckInInput) {
       city: input.city ?? null,
       region: input.region ?? null,
       country: input.country ?? null,
+      keywords: input.keywords ?? [],
     })
     .select("*")
     .single();
@@ -110,6 +113,41 @@ export async function updateCheckInStatus(
   revalidatePath("/check-ins");
   revalidatePath("/dashboard");
   return { success: true };
+}
+
+export async function saveBusinessKeywords(
+  businessId: string,
+  keywords: string[],
+): Promise<{ error?: string; keywords?: string[] }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: "Not authenticated." };
+  }
+
+  const cleaned = Array.from(
+    new Set(
+      keywords
+        .map((keyword) => keyword.trim())
+        .filter((keyword) => keyword.length > 0),
+    ),
+  ).slice(0, 50);
+
+  const { error } = await supabase
+    .from("businesses")
+    .update({ keywords: cleaned })
+    .eq("id", businessId)
+    .eq("user_id", user.id);
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  revalidatePath("/check-ins");
+  return { keywords: cleaned };
 }
 
 export async function publishCheckInToSocial(

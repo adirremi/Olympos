@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 import { CheckInMediaUpload } from "@/components/check-in-media-upload";
-import { createCheckIn } from "./actions";
+import { createCheckIn, saveBusinessKeywords } from "./actions";
+import { suggestKeywords } from "@/lib/keywords";
 import type { AddressSelection } from "@/types/location";
 import type { Business, CheckInCtaType } from "@/types/database";
 
@@ -15,11 +16,73 @@ const ctaOptions: { value: CheckInCtaType; label: string }[] = [
 ];
 
 export function CheckInForm({ businesses }: { businesses: Business[] }) {
+  const [businessId, setBusinessId] = useState(businesses[0]?.id ?? "");
   const [selection, setSelection] = useState<AddressSelection | null>(null);
   const [savedCheckInId, setSavedCheckInId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  const [savedByBusiness, setSavedByBusiness] = useState<Record<string, string[]>>(
+    () =>
+      Object.fromEntries(
+        businesses.map((business) => [business.id, business.keywords ?? []]),
+      ),
+  );
+  const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
+  const [customKeyword, setCustomKeyword] = useState("");
+  const [isSavingKeyword, startKeywordTransition] = useTransition();
+
+  useEffect(() => {
+    setSelectedKeywords([]);
+  }, [businessId]);
+
+  const selectedBusiness = businesses.find((b) => b.id === businessId);
+  const savedKeywords = savedByBusiness[businessId] ?? [];
+
+  const suggestions = useMemo(() => {
+    if (!selectedBusiness) {
+      return [];
+    }
+    return suggestKeywords(
+      selectedBusiness.name,
+      selection?.city,
+      selection?.region,
+    );
+  }, [selectedBusiness, selection?.city, selection?.region]);
+
+  const allKeywords = useMemo(() => {
+    return Array.from(new Set([...savedKeywords, ...suggestions]));
+  }, [savedKeywords, suggestions]);
+
+  function toggleKeyword(keyword: string) {
+    setSelectedKeywords((prev) =>
+      prev.includes(keyword)
+        ? prev.filter((k) => k !== keyword)
+        : [...prev, keyword],
+    );
+  }
+
+  function addCustomKeyword() {
+    const keyword = customKeyword.trim();
+    if (!keyword || !businessId) {
+      return;
+    }
+    const next = Array.from(new Set([...savedKeywords, keyword]));
+    setCustomKeyword("");
+    setSelectedKeywords((prev) =>
+      prev.includes(keyword) ? prev : [...prev, keyword],
+    );
+    startKeywordTransition(async () => {
+      const result = await saveBusinessKeywords(businessId, next);
+      if (result.keywords) {
+        setSavedByBusiness((prev) => ({
+          ...prev,
+          [businessId]: result.keywords as string[],
+        }));
+      }
+    });
+  }
 
   if (businesses.length === 0) {
     return (
@@ -45,7 +108,7 @@ export function CheckInForm({ businesses }: { businesses: Business[] }) {
         const formData = new FormData(event.currentTarget);
         startTransition(async () => {
           const result = await createCheckIn({
-            businessId: String(formData.get("businessId")),
+            businessId,
             fullAddress: selection.fullAddress,
             lat: selection.lat,
             lng: selection.lng,
@@ -54,6 +117,7 @@ export function CheckInForm({ businesses }: { businesses: Business[] }) {
             country: selection.country ?? null,
             description: String(formData.get("description") ?? ""),
             ctaType: String(formData.get("ctaType")) as CheckInCtaType,
+            keywords: selectedKeywords,
           });
 
           if (result.error) {
@@ -76,7 +140,8 @@ export function CheckInForm({ businesses }: { businesses: Business[] }) {
           name="businessId"
           required
           className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm"
-          defaultValue={businesses[0]?.id}
+          value={businessId}
+          onChange={(event) => setBusinessId(event.target.value)}
         >
           {businesses.map((business) => (
             <option key={business.id} value={business.id}>
@@ -104,6 +169,65 @@ export function CheckInForm({ businesses }: { businesses: Business[] }) {
             </p>
           </div>
         ) : null}
+      </div>
+
+      <div className="space-y-2">
+        <label className="text-sm font-medium text-slate-700">
+          Keywords{" "}
+          <span className="font-normal text-slate-400">
+            (added as hashtags to posts)
+          </span>
+        </label>
+
+        {allKeywords.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {allKeywords.map((keyword) => {
+              const active = selectedKeywords.includes(keyword);
+              return (
+                <button
+                  key={keyword}
+                  type="button"
+                  onClick={() => toggleKeyword(keyword)}
+                  className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                    active
+                      ? "border-blue-600 bg-blue-600 text-white"
+                      : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  {keyword}
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="text-xs text-slate-500">
+            Pick an address to see suggestions, or add your own below.
+          </p>
+        )}
+
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={customKeyword}
+            onChange={(event) => setCustomKeyword(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                addCustomKeyword();
+              }
+            }}
+            placeholder="Add a custom keyword…"
+            className="h-9 flex-1 rounded-lg border border-slate-200 px-3 text-sm"
+          />
+          <button
+            type="button"
+            onClick={addCustomKeyword}
+            disabled={isSavingKeyword || !customKeyword.trim()}
+            className="h-9 rounded-lg border border-slate-300 px-3 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          >
+            {isSavingKeyword ? "Saving…" : "Add"}
+          </button>
+        </div>
       </div>
 
       <div className="space-y-1.5">

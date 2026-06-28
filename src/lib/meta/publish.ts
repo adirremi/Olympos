@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { buildOverlayImageUrl } from "@/lib/image/overlay";
+import { keywordsToHashtags } from "@/lib/keywords";
 import {
   publishImageToInstagram,
   publishPhotoToFacebookPage,
@@ -35,7 +36,7 @@ export async function publishCheckInToMeta(
   const { data: checkIn, error: checkInError } = await admin
     .from("check_ins")
     .select(
-      "id, business_id, full_address, description, city, region, country, businesses ( name )",
+      "id, business_id, full_address, description, city, region, country, keywords, businesses ( name )",
     )
     .eq("id", checkInId)
     .single();
@@ -43,6 +44,10 @@ export async function publishCheckInToMeta(
   if (checkInError || !checkIn) {
     throw new Error(checkInError?.message ?? "Check-in not found.");
   }
+
+  const hashtags = keywordsToHashtags(
+    Array.isArray(checkIn.keywords) ? (checkIn.keywords as string[]) : [],
+  );
 
   const businessName = Array.isArray(checkIn.businesses)
     ? checkIn.businesses[0]?.name
@@ -80,7 +85,7 @@ export async function publishCheckInToMeta(
   const rows = (connections ?? []) as ConnectionRow[];
   const result: PublishResult = {};
 
-  const caption = [checkIn.description, checkIn.full_address]
+  const caption = [checkIn.description, checkIn.full_address, hashtags]
     .filter(Boolean)
     .join("\n\n");
 

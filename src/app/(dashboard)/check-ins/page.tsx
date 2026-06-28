@@ -10,7 +10,13 @@ export default async function CheckInsPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  let businesses: { id: string; user_id: string; name: string; created_at: string }[] = [];
+  let businesses: {
+    id: string;
+    user_id: string;
+    name: string;
+    created_at: string;
+    keywords?: string[];
+  }[] = [];
   let checkIns: unknown[] = [];
   let loadError: string | null = null;
 
@@ -19,17 +25,26 @@ export default async function CheckInsPage() {
       throw new Error("Not authenticated.");
     }
 
-    const businessesResult = await supabase
+    const withKeywords = await supabase
       .from("businesses")
-      .select("id, user_id, name, created_at")
+      .select("id, user_id, name, created_at, keywords")
       .eq("user_id", user.id)
       .order("name");
+
+    // Fall back if the keywords column hasn't been added yet (migration 009).
+    const businessesResult = withKeywords.error
+      ? await supabase
+          .from("businesses")
+          .select("id, user_id, name, created_at")
+          .eq("user_id", user.id)
+          .order("name")
+      : withKeywords;
 
     if (businessesResult.error) {
       throw new Error(`businesses: ${businessesResult.error.message}`);
     }
 
-    businesses = businessesResult.data ?? [];
+    businesses = (businessesResult.data ?? []) as typeof businesses;
     const businessIds = businesses.map((business) => business.id);
 
     if (businessIds.length > 0) {
