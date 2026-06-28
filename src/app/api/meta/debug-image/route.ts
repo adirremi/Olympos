@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import sharp from "sharp";
+import { buildOverlayImageUrl } from "@/lib/image/overlay";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
@@ -69,6 +70,34 @@ export async function GET(request: Request) {
   } catch (fetchError) {
     report.fetch_error =
       fetchError instanceof Error ? fetchError.message : String(fetchError);
+  }
+
+  // Run the real overlay pipeline and inspect the result.
+  try {
+    const overlayUrl = await buildOverlayImageUrl({
+      imageUrl,
+      businessName: "Debug Business",
+      locationLabel: "New York, NY",
+      checkInId,
+    });
+    report.overlay_url = overlayUrl;
+    report.overlay_differs_from_original = overlayUrl !== imageUrl;
+
+    const overlayResponse = await fetch(overlayUrl);
+    report.overlay_fetch_status = overlayResponse.status;
+    report.overlay_content_type = overlayResponse.headers.get("content-type");
+    const overlayBuffer = Buffer.from(await overlayResponse.arrayBuffer());
+    const overlayMeta = await sharp(overlayBuffer).metadata();
+    report.overlay_format = overlayMeta.format;
+    report.overlay_width = overlayMeta.width;
+    report.overlay_height = overlayMeta.height;
+    report.overlay_ratio =
+      overlayMeta.width && overlayMeta.height
+        ? Number((overlayMeta.width / overlayMeta.height).toFixed(3))
+        : null;
+  } catch (overlayError) {
+    report.overlay_error =
+      overlayError instanceof Error ? overlayError.message : String(overlayError);
   }
 
   return NextResponse.json(report, {

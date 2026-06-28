@@ -1,5 +1,26 @@
 import { META_GRAPH_BASE } from "./auth";
 
+type MetaErrorPayload = {
+  message?: string;
+  code?: number;
+  error_subcode?: number;
+  error_user_title?: string;
+  error_user_msg?: string;
+};
+
+function formatMetaError(
+  error: MetaErrorPayload | undefined,
+  fallback: string,
+): string {
+  if (!error) {
+    return fallback;
+  }
+  const text =
+    error.error_user_msg ?? error.error_user_title ?? error.message ?? fallback;
+  const code = [error.code, error.error_subcode].filter(Boolean).join("/");
+  return code ? `${text} (code ${code})` : text;
+}
+
 export type MetaPage = {
   id: string;
   name: string;
@@ -52,11 +73,11 @@ export async function publishToFacebookPage(
   });
   const payload = (await response.json()) as {
     id?: string;
-    error?: { message?: string };
+    error?: MetaErrorPayload;
   };
 
   if (!response.ok || !payload.id) {
-    throw new Error(payload.error?.message ?? "Facebook publish failed.");
+    throw new Error(formatMetaError(payload.error, "Facebook publish failed."));
   }
 
   return payload.id;
@@ -83,11 +104,13 @@ export async function publishPhotoToFacebookPage(
   const payload = (await response.json()) as {
     id?: string;
     post_id?: string;
-    error?: { message?: string };
+    error?: MetaErrorPayload;
   };
 
   if (!response.ok || (!payload.id && !payload.post_id)) {
-    throw new Error(payload.error?.message ?? "Facebook photo publish failed.");
+    throw new Error(
+      formatMetaError(payload.error, "Facebook photo publish failed."),
+    );
   }
 
   return payload.post_id ?? payload.id ?? "";
@@ -113,12 +136,12 @@ export async function publishImageToInstagram(
   });
   const createPayload = (await createResponse.json()) as {
     id?: string;
-    error?: { message?: string };
+    error?: MetaErrorPayload;
   };
 
   if (!createResponse.ok || !createPayload.id) {
     throw new Error(
-      createPayload.error?.message ?? "Instagram media creation failed.",
+      formatMetaError(createPayload.error, "Instagram media creation failed."),
     );
   }
 
@@ -137,12 +160,12 @@ export async function publishImageToInstagram(
   );
   const publishPayload = (await publishResponse.json()) as {
     id?: string;
-    error?: { message?: string };
+    error?: MetaErrorPayload;
   };
 
   if (!publishResponse.ok || !publishPayload.id) {
     throw new Error(
-      publishPayload.error?.message ?? "Instagram publish failed.",
+      formatMetaError(publishPayload.error, "Instagram publish failed."),
     );
   }
 
