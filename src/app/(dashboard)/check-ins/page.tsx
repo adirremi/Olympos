@@ -2,77 +2,91 @@ import { CheckInForm } from "./check-in-form";
 import { CheckInList } from "./check-in-list";
 import { createClient } from "@/lib/supabase/server";
 
+export const dynamic = "force-dynamic";
+
 export default async function CheckInsPage() {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data: businesses } = await supabase
-    .from("businesses")
-    .select("id, user_id, name, created_at")
-    .eq("user_id", user!.id)
-    .order("name");
+  let businesses: { id: string; user_id: string; name: string; created_at: string }[] = [];
+  let checkIns: unknown[] = [];
+  let loadError: string | null = null;
 
-  const businessIds = businesses?.map((business) => business.id) ?? [];
-
-  async function fetchCheckIns() {
-    if (businessIds.length === 0) {
-      return [];
+  try {
+    if (!user) {
+      throw new Error("Not authenticated.");
     }
 
-    // Try the full query (with media). If the media columns/relationship are
-    // missing (migration not run yet), fall back to a query without media so
-    // the page still loads.
-    const withMedia = await supabase
-      .from("check_ins")
-      .select(
-        `
-        id,
-        business_id,
-        full_address,
-        lat,
-        lng,
-        description,
-        cta_type,
-        status,
-        created_at,
-        businesses ( name ),
-        check_in_media ( image_url, media_type, sort_order )
-      `,
-      )
-      .in("business_id", businessIds)
-      .order("created_at", { ascending: false })
-      .limit(50);
+    const businessesResult = await supabase
+      .from("businesses")
+      .select("id, user_id, name, created_at")
+      .eq("user_id", user.id)
+      .order("name");
 
-    if (!withMedia.error) {
-      return withMedia.data ?? [];
+    if (businessesResult.error) {
+      throw new Error(`businesses: ${businessesResult.error.message}`);
     }
 
-    const withoutMedia = await supabase
-      .from("check_ins")
-      .select(
-        `
-        id,
-        business_id,
-        full_address,
-        lat,
-        lng,
-        description,
-        cta_type,
-        status,
-        created_at,
-        businesses ( name )
-      `,
-      )
-      .in("business_id", businessIds)
-      .order("created_at", { ascending: false })
-      .limit(50);
+    businesses = businessesResult.data ?? [];
+    const businessIds = businesses.map((business) => business.id);
 
-    return withoutMedia.data ?? [];
+    if (businessIds.length > 0) {
+      const withMedia = await supabase
+        .from("check_ins")
+        .select(
+          `
+          id,
+          business_id,
+          full_address,
+          lat,
+          lng,
+          description,
+          cta_type,
+          status,
+          created_at,
+          businesses ( name ),
+          check_in_media ( image_url, media_type, sort_order )
+        `,
+        )
+        .in("business_id", businessIds)
+        .order("created_at", { ascending: false })
+        .limit(50);
+
+      if (withMedia.error) {
+        const withoutMedia = await supabase
+          .from("check_ins")
+          .select(
+            `
+            id,
+            business_id,
+            full_address,
+            lat,
+            lng,
+            description,
+            cta_type,
+            status,
+            created_at,
+            businesses ( name )
+          `,
+          )
+          .in("business_id", businessIds)
+          .order("created_at", { ascending: false })
+          .limit(50);
+
+        if (withoutMedia.error) {
+          throw new Error(`check_ins: ${withoutMedia.error.message}`);
+        }
+
+        checkIns = withoutMedia.data ?? [];
+      } else {
+        checkIns = withMedia.data ?? [];
+      }
+    }
+  } catch (error) {
+    loadError = error instanceof Error ? error.message : "Failed to load check-ins.";
   }
-
-  const checkIns = await fetchCheckIns();
 
   return (
     <div className="mx-auto max-w-5xl space-y-8">
@@ -83,8 +97,20 @@ export default async function CheckInsPage() {
         </p>
       </header>
 
-      <CheckInForm businesses={businesses ?? []} />
-      <CheckInList checkIns={checkIns} />
+      {loadError ? (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+          <p className="font-medium">Could not load some data:</p>
+          <p className="mt-1">{loadError}</p>
+          <p className="mt-2 text-xs text-red-700">
+            If this mentions a missing column or relationship, run migration 005
+            (and 007) in Supabase SQL Editor.
+          </p>
+        </div>
+      ) : null}
+
+      <CheckInForm businesses={businesses} />
+      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+      <CheckInList checkIns={checkIns as any} />
     </div>
   );
 }
