@@ -1,8 +1,13 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { exchangeGoogleCodeForTokens } from "@/lib/google-business/auth";
 import { saveUserGoogleTokens } from "@/lib/google-business/tokens";
 import { createClient } from "@/lib/supabase/server";
+
+function redirectWithClearedState(url: URL) {
+  const response = NextResponse.redirect(url);
+  response.cookies.delete("google_business_oauth_state");
+  return response;
+}
 
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
@@ -12,17 +17,20 @@ export async function GET(request: Request) {
   const baseUrl = process.env.APP_BASE_URL ?? requestUrl.origin;
 
   if (error) {
-    return NextResponse.redirect(
+    return redirectWithClearedState(
       new URL(`/businesses?google_error=${encodeURIComponent(error)}`, baseUrl),
     );
   }
 
-  const cookieStore = await cookies();
-  const savedState = cookieStore.get("google_business_oauth_state")?.value;
-  cookieStore.delete("google_business_oauth_state");
+  const savedState = request.headers
+    .get("cookie")
+    ?.split(";")
+    .map((part) => part.trim())
+    .find((part) => part.startsWith("google_business_oauth_state="))
+    ?.split("=")[1];
 
   if (!code || !state || !savedState || state !== savedState) {
-    return NextResponse.redirect(
+    return redirectWithClearedState(
       new URL("/businesses?google_error=invalid_state", baseUrl),
     );
   }
@@ -33,21 +41,20 @@ export async function GET(request: Request) {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return NextResponse.redirect(new URL("/login", baseUrl));
+    return redirectWithClearedState(new URL("/login", baseUrl));
   }
 
   try {
     const tokens = await exchangeGoogleCodeForTokens(code);
     await saveUserGoogleTokens(user.id, tokens);
-    return NextResponse.redirect(new URL("/businesses?google=connected", baseUrl));
+    return redirectWithClearedState(
+      new URL("/businesses?google=connected", baseUrl),
+    );
   } catch (callbackError) {
     const message =
       callbackError instanceof Error ? callbackError.message : "oauth_failed";
-    return NextResponse.redirect(
-      new URL(
-        `/businesses?google_error=${encodeURIComponent(message)}`,
-        baseUrl,
-      ),
+    return redirectWithClearedState(
+      new URL(`/businesses?google_error=${encodeURIComponent(message)}`, baseUrl),
     );
   }
 }

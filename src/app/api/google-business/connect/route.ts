@@ -1,5 +1,4 @@
 import { randomBytes } from "crypto";
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { buildGoogleBusinessAuthUrl } from "@/lib/google-business/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -10,13 +9,17 @@ export async function GET() {
     data: { user },
   } = await supabase.auth.getUser();
 
+  const baseUrl = process.env.APP_BASE_URL ?? "http://localhost:3000";
+
   if (!user) {
-    return NextResponse.redirect(new URL("/login", process.env.APP_BASE_URL ?? "http://localhost:3000"));
+    return NextResponse.redirect(new URL("/login", baseUrl));
   }
 
   const state = randomBytes(16).toString("hex");
-  const cookieStore = await cookies();
-  cookieStore.set("google_business_oauth_state", state, {
+  const authUrl = buildGoogleBusinessAuthUrl(state);
+
+  const response = NextResponse.redirect(authUrl);
+  response.cookies.set("google_business_oauth_state", state, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
@@ -24,6 +27,5 @@ export async function GET() {
     path: "/",
   });
 
-  const authUrl = buildGoogleBusinessAuthUrl(state);
-  return NextResponse.redirect(authUrl);
+  return response;
 }
