@@ -87,6 +87,16 @@ export async function publishCheckInToMeta(
     .map((m) => m.image_url as string)
     .filter(Boolean);
   const originalImageUrl = await firstReachableUrl(candidateUrls);
+
+  // The check-in has image rows but none of their files exist in storage (e.g.
+  // they were deleted). Fail clearly instead of posting a text-only Facebook
+  // post and an empty Instagram error.
+  if (candidateUrls.length > 0 && !originalImageUrl) {
+    throw new Error(
+      "The image file is missing from storage. Please re-upload the photo to this check-in and try again.",
+    );
+  }
+
   const label = locationLabel(checkIn);
 
   // Build the overlay image once and reuse for both platforms.
