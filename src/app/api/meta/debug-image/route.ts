@@ -95,9 +95,32 @@ export async function GET(request: Request) {
       overlayMeta.width && overlayMeta.height
         ? Number((overlayMeta.width / overlayMeta.height).toFixed(3))
         : null;
+
+    // Channel means tell us if the result is black (~0), white/empty (~255),
+    // or has real content (mixed values).
+    const overlayStats = await sharp(overlayBuffer).stats();
+    report.overlay_channel_means = overlayStats.channels.map((c) =>
+      Math.round(c.mean),
+    );
   } catch (overlayError) {
     report.overlay_error =
       overlayError instanceof Error ? overlayError.message : String(overlayError);
+  }
+
+  // Does this runtime render SVG TEXT at all? (Serverless often lacks fonts.)
+  // Render white text on a black background; if fonts work the mean is > 0.
+  try {
+    const textSvg = Buffer.from(
+      `<svg width="400" height="120" xmlns="http://www.w3.org/2000/svg"><rect width="400" height="120" fill="black"/><text x="20" y="80" font-family="sans-serif" font-size="60" fill="white">Test123</text></svg>`,
+    );
+    const rendered = await sharp(textSvg).png().toBuffer();
+    const textStats = await sharp(rendered).stats();
+    const mean = textStats.channels[0]?.mean ?? 0;
+    report.svg_text_mean = Number(mean.toFixed(2));
+    report.svg_text_renders = mean > 1;
+  } catch (svgError) {
+    report.svg_text_error =
+      svgError instanceof Error ? svgError.message : String(svgError);
   }
 
   return NextResponse.json(report, {
