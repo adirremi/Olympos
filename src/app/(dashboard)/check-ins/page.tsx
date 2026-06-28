@@ -16,29 +16,63 @@ export default async function CheckInsPage() {
 
   const businessIds = businesses?.map((business) => business.id) ?? [];
 
-  const { data: checkIns } =
-    businessIds.length > 0
-      ? await supabase
-          .from("check_ins")
-          .select(
-            `
-            id,
-            business_id,
-            full_address,
-            lat,
-            lng,
-            description,
-            cta_type,
-            status,
-            created_at,
-            businesses ( name ),
-            check_in_media ( image_url, media_type, sort_order )
-          `,
-          )
-          .in("business_id", businessIds)
-          .order("created_at", { ascending: false })
-          .limit(50)
-      : { data: [] };
+  async function fetchCheckIns() {
+    if (businessIds.length === 0) {
+      return [];
+    }
+
+    // Try the full query (with media). If the media columns/relationship are
+    // missing (migration not run yet), fall back to a query without media so
+    // the page still loads.
+    const withMedia = await supabase
+      .from("check_ins")
+      .select(
+        `
+        id,
+        business_id,
+        full_address,
+        lat,
+        lng,
+        description,
+        cta_type,
+        status,
+        created_at,
+        businesses ( name ),
+        check_in_media ( image_url, media_type, sort_order )
+      `,
+      )
+      .in("business_id", businessIds)
+      .order("created_at", { ascending: false })
+      .limit(50);
+
+    if (!withMedia.error) {
+      return withMedia.data ?? [];
+    }
+
+    const withoutMedia = await supabase
+      .from("check_ins")
+      .select(
+        `
+        id,
+        business_id,
+        full_address,
+        lat,
+        lng,
+        description,
+        cta_type,
+        status,
+        created_at,
+        businesses ( name )
+      `,
+      )
+      .in("business_id", businessIds)
+      .order("created_at", { ascending: false })
+      .limit(50);
+
+    return withoutMedia.data ?? [];
+  }
+
+  const checkIns = await fetchCheckIns();
 
   return (
     <div className="mx-auto max-w-5xl space-y-8">
@@ -50,7 +84,7 @@ export default async function CheckInsPage() {
       </header>
 
       <CheckInForm businesses={businesses ?? []} />
-      <CheckInList checkIns={checkIns ?? []} />
+      <CheckInList checkIns={checkIns} />
     </div>
   );
 }
