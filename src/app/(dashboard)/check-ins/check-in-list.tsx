@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { CheckInMediaUpload } from "@/components/check-in-media-upload";
 import { publishCheckInToSocial, updateCheckInStatus } from "./actions";
 import type { MetaPlatform, PublishResult } from "@/lib/meta/types";
 import type { CheckIn } from "@/types/database";
@@ -20,6 +22,29 @@ function businessName(businesses: CheckInRow["businesses"]): string {
     return businesses[0]?.name ?? "Business";
   }
   return businesses.name;
+}
+
+function MediaAdder({ checkInId }: { checkInId: string }) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="space-y-2">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+      >
+        {open ? "Close" : "Add photos / videos"}
+      </button>
+      {open ? (
+        <CheckInMediaUpload
+          checkInId={checkInId}
+          onComplete={() => router.refresh()}
+        />
+      ) : null}
+    </div>
+  );
 }
 
 function PublishControls({ checkInId }: { checkInId: string }) {
@@ -192,6 +217,8 @@ export function CheckInList({ checkIns }: { checkIns: CheckInRow[] }) {
                 </button>
               ) : null}
             </div>
+
+            <MediaAdder checkInId={checkIn.id} />
 
             <PublishControls checkInId={checkIn.id} />
           </li>
