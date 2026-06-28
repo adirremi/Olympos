@@ -33,7 +33,12 @@ const providers = [
   },
 ] as const;
 
-export default async function ConnectionsPage() {
+export default async function ConnectionsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ meta?: string; meta_error?: string }>;
+}) {
+  const { meta, meta_error: metaError } = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
@@ -81,6 +86,18 @@ export default async function ConnectionsPage() {
           Connect Google Business to import locations. Other platforms come next.
         </p>
       </header>
+
+      {meta === "linked" ? (
+        <p className="rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-700">
+          Page linked successfully.
+        </p>
+      ) : null}
+
+      {metaError ? (
+        <p className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          Facebook error: {metaError}
+        </p>
+      ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2">
         {providers.map((provider) => {

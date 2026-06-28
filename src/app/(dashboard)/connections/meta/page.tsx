@@ -6,7 +6,12 @@ import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
-export default async function MetaSelectPage() {
+export default async function MetaSelectPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string; linked?: string }>;
+}) {
+  const { error: actionError, linked } = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
@@ -82,6 +87,18 @@ export default async function MetaSelectPage() {
           Page and its linked Instagram account.
         </p>
       </header>
+
+      {actionError ? (
+        <p className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          {actionError}
+        </p>
+      ) : null}
+
+      {linked ? (
+        <p className="rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-700">
+          Page linked successfully.
+        </p>
+      ) : null}
 
       {fetchError ? (
         <p className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
