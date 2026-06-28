@@ -3,7 +3,11 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { CheckInMediaUpload } from "@/components/check-in-media-upload";
-import { publishCheckInToSocial, updateCheckInStatus } from "./actions";
+import {
+  deleteCheckIn,
+  publishCheckInToSocial,
+  updateCheckInStatus,
+} from "./actions";
 import type { MetaPlatform, PublishResult } from "@/lib/meta/types";
 import type { CheckIn } from "@/types/database";
 
@@ -216,6 +220,21 @@ export function CheckInList({ checkIns }: { checkIns: CheckInRow[] }) {
                   Archive
                 </button>
               ) : null}
+              <button
+                type="button"
+                disabled={isPending}
+                onClick={() => {
+                  if (!confirm("Delete this check-in? This cannot be undone.")) {
+                    return;
+                  }
+                  startTransition(async () => {
+                    await deleteCheckIn(checkIn.id);
+                  });
+                }}
+                className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
+              >
+                Delete
+              </button>
             </div>
 
             <MediaAdder checkInId={checkIn.id} />

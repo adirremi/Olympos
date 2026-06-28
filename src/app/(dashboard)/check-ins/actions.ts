@@ -115,6 +115,46 @@ export async function updateCheckInStatus(
   return { success: true };
 }
 
+export async function deleteCheckIn(checkInId: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: "Not authenticated." };
+  }
+
+  const { data: checkIn } = await supabase
+    .from("check_ins")
+    .select("id, businesses!inner ( user_id )")
+    .eq("id", checkInId)
+    .maybeSingle();
+
+  if (!checkIn) {
+    return { error: "Check-in not found." };
+  }
+
+  const owner = Array.isArray(checkIn.businesses)
+    ? checkIn.businesses[0]?.user_id
+    : (checkIn.businesses as { user_id: string } | null)?.user_id;
+
+  if (owner !== user.id) {
+    return { error: "Not allowed." };
+  }
+
+  const { error } = await supabase.from("check_ins").delete().eq("id", checkInId);
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  revalidatePath("/check-ins");
+  revalidatePath("/dashboard");
+  revalidatePath("/map");
+  return { success: true };
+}
+
 export async function saveBusinessKeywords(
   businessId: string,
   keywords: string[],
