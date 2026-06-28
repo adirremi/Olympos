@@ -83,12 +83,24 @@ export async function getValidGoogleAccessToken(
 }
 
 export async function hasGoogleBusinessConnection(userId: string) {
-  const admin = createAdminClient();
-  const { data } = await admin
-    .from("user_google_tokens")
-    .select("user_id")
-    .eq("user_id", userId)
-    .maybeSingle();
+  try {
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      return false;
+    }
 
-  return Boolean(data);
+    const admin = createAdminClient();
+    const { data, error } = await admin
+      .from("user_google_tokens")
+      .select("user_id")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (error) {
+      return false;
+    }
+
+    return Boolean(data);
+  } catch {
+    return false;
+  }
 }
