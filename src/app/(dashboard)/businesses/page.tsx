@@ -3,6 +3,7 @@ import { GoogleBusinessImport } from "./google-import";
 import { getBusinessesForUser } from "@/lib/businesses";
 import { hasGoogleBusinessConnection } from "@/lib/google-business/tokens";
 import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
 
 type BusinessesPageProps = {
   searchParams: Promise<{
@@ -19,11 +20,25 @@ export default async function BusinessesPage({ searchParams }: BusinessesPagePro
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return null;
+    redirect("/login");
   }
 
   const isGoogleConnected = await hasGoogleBusinessConnection(user.id);
-  const { businesses, dbWarning } = await getBusinessesForUser(user.id);
+
+  let businesses: Awaited<ReturnType<typeof getBusinessesForUser>>["businesses"] = [];
+  let dbWarning: string | null = null;
+
+  try {
+    const result = await getBusinessesForUser(user.id);
+    businesses = result.businesses;
+    dbWarning = result.dbWarning;
+  } catch (loadError) {
+    dbWarning =
+      loadError instanceof Error
+        ? loadError.message
+        : "Failed to load businesses.";
+  }
+
   const googleConfigured = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
 
   return (

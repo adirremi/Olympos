@@ -75,7 +75,7 @@ function BusinessCard({ business }: { business: BusinessWithInvites }) {
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  const pendingInvites = business.business_invitations.filter(
+  const pendingInvites = (business.business_invitations ?? []).filter(
     (invite) => invite.status === "pending",
   );
 

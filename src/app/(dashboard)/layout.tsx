@@ -19,9 +19,19 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
-  await acceptPendingInvitations(user.id, user.email);
+  try {
+    await acceptPendingInvitations(user.id, user.email);
+  } catch {
+    // Invitations table may not exist yet — ignore during migration rollout.
+  }
 
-  const profile = await getProfile(user.id);
+  let profile = null;
+  try {
+    profile = await getProfile(user.id);
+  } catch {
+    profile = null;
+  }
+
   if (!profile?.onboarding_completed_at) {
     redirect("/onboarding");
   }

@@ -39,7 +39,18 @@ export async function getBusinessesForUser(userId: string) {
     .order("created_at", { ascending: false });
 
   if (!full.error) {
-    return { businesses: full.data ?? [], dbWarning: null };
+    return {
+      businesses: (full.data ?? []).map((business) => ({
+        ...business,
+        source: business.source ?? "manual",
+        address: business.address ?? null,
+        gmb_location_id: business.gmb_location_id ?? null,
+        business_invitations: Array.isArray(business.business_invitations)
+          ? business.business_invitations
+          : [],
+      })),
+      dbWarning: null,
+    };
   }
 
   const basic = await supabase
@@ -49,7 +60,10 @@ export async function getBusinessesForUser(userId: string) {
     .order("created_at", { ascending: false });
 
   if (basic.error) {
-    throw new Error(basic.error.message);
+    return {
+      businesses: [],
+      dbWarning: `Database error: ${basic.error.message}. Run migrations 000, 002, and 003 in Supabase.`,
+    };
   }
 
   return {
