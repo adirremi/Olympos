@@ -1,7 +1,8 @@
 "use client";
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useRef, useState } from "react";
-import { loadGoogleMapsScript } from "@/lib/google-maps";
+import { importPlacesLibrary } from "@/lib/google-maps";
 import { cn } from "@/lib/utils";
 import type { AddressSelection } from "@/types/location";
 
@@ -9,88 +10,134 @@ type AddressAutocompleteProps = {
   onSelect: (selection: AddressSelection) => void;
   placeholder?: string;
   className?: string;
-  defaultValue?: string;
-  disabled?: boolean;
 };
 
 export function AddressAutocomplete({
   onSelect,
   placeholder = "Search for an address…",
   className,
-  defaultValue = "",
-  disabled = false,
 }: AddressAutocompleteProps) {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const onSelectRef = useRef(onSelect);
+  onSelectRef.current = onSelect;
+
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
+    let appended: HTMLElement | null = null;
 
-    loadGoogleMapsScript()
-      .then(() => {
-        if (!cancelled) {
+    async function emitFromPlace(place: any) {
+      try {
+        if (place?.fetchFields) {
+          await place.fetchFields({ fields: ["formattedAddress", "location"] });
+        }
+        const fullAddress = place?.formattedAddress ?? place?.formatted_address;
+        const lat = place?.location?.lat?.() ?? place?.geometry?.location?.lat?.();
+        const lng = place?.location?.lng?.() ?? place?.geometry?.location?.lng?.();
+
+        if (!fullAddress || lat == null || lng == null) {
+          setError("Could not read the selected address. Try another result.");
+          return;
+        }
+
+        setError(null);
+        onSelectRef.current({ fullAddress, lat, lng });
+      } catch (fieldError) {
+        setError(
+          fieldError instanceof Error
+            ? fieldError.message
+            : "Could not read the selected address.",
+        );
+      }
+    }
+
+    (async () => {
+      try {
+        const places: any = await importPlacesLibrary();
+        if (cancelled || !containerRef.current) {
+          return;
+        }
+
+        // Preferred: new Places API web component.
+        if (places.PlaceAutocompleteElement) {
+          const element: any = new places.PlaceAutocompleteElement();
+          element.style.width = "100%";
+          if (placeholder) {
+            element.setAttribute("placeholder", placeholder);
+          }
+
+          const handleSelect = async (event: any) => {
+            const prediction =
+              event?.placePrediction ?? event?.detail?.placePrediction;
+            if (prediction?.toPlace) {
+              await emitFromPlace(prediction.toPlace());
+              return;
+            }
+            const place = event?.place ?? event?.detail?.place;
+            if (place) {
+              await emitFromPlace(place);
+            }
+          };
+
+          element.addEventListener("gmp-select", handleSelect);
+          element.addEventListener("gmp-placeselect", handleSelect);
+
+          containerRef.current.appendChild(element);
+          appended = element;
           setReady(true);
+          return;
         }
-      })
-      .catch((loadError: Error) => {
+
+        // Fallback: legacy Autocomplete (older API keys).
+        if (places.Autocomplete) {
+          const input = document.createElement("input");
+          input.type = "text";
+          input.placeholder = placeholder;
+          input.autocomplete = "off";
+          input.className =
+            "flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400";
+          containerRef.current.appendChild(input);
+          appended = input;
+
+          const autocomplete = new places.Autocomplete(input, {
+            fields: ["formatted_address", "geometry"],
+            types: ["address"],
+          });
+          autocomplete.addListener("place_changed", () => {
+            void emitFromPlace(autocomplete.getPlace());
+          });
+
+          setReady(true);
+          return;
+        }
+
+        setError("Address search is unavailable for this API key.");
+      } catch (loadError) {
         if (!cancelled) {
-          setError(loadError.message);
+          setError(
+            loadError instanceof Error
+              ? loadError.message
+              : "Failed to load address search.",
+          );
         }
-      });
+      }
+    })();
 
     return () => {
       cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!ready || !inputRef.current || autocompleteRef.current) {
-      return;
-    }
-
-    const autocomplete = new google.maps.places.Autocomplete(inputRef.current, {
-      fields: ["formatted_address", "geometry"],
-      types: ["address"],
-    });
-
-    autocomplete.addListener("place_changed", () => {
-      const place = autocomplete.getPlace();
-      const fullAddress = place.formatted_address;
-      const lat = place.geometry?.location?.lat();
-      const lng = place.geometry?.location?.lng();
-
-      if (!fullAddress || lat == null || lng == null) {
-        setError("Could not read the selected address. Try another result.");
-        return;
+      if (appended && appended.parentNode) {
+        appended.parentNode.removeChild(appended);
       }
-
-      setError(null);
-      onSelect({ fullAddress, lat, lng });
-    });
-
-    autocompleteRef.current = autocomplete;
-  }, [ready, onSelect]);
+    };
+  }, [placeholder]);
 
   return (
-    <div className="space-y-1.5">
-      <input
-        ref={inputRef}
-        type="text"
-        defaultValue={defaultValue}
-        placeholder={placeholder}
-        disabled={disabled || !ready}
-        autoComplete="off"
-        className={cn(
-          "flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm",
-          "placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400",
-          "disabled:cursor-not-allowed disabled:opacity-50",
-          className,
-        )}
-      />
+    <div className={cn("space-y-1.5", className)}>
+      <div ref={containerRef} />
       {!ready && !error ? (
-        <p className="text-xs text-slate-500">Loading Google Maps…</p>
+        <p className="text-xs text-slate-500">Loading address search…</p>
       ) : null}
       {error ? <p className="text-xs text-red-600">{error}</p> : null}
     </div>
