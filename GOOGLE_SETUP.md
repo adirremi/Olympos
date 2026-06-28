@@ -96,6 +96,25 @@ cd mentor-app && npm run dev
 
 ---
 
+## ⚠️ חשוב — Quota של Google Business Profile API
+
+ברירת המחדל של Google ל-Business Profile APIs היא **0 בקשות לדקה**.
+זה נורמלי — צריך לבקש גישה פעם אחת:
+
+1. מלא את הטופס: https://support.google.com/business/contact/api_default
+   - בחר את ה-Project (number: 230655863171)
+   - APIs: Business Profile APIs
+2. אחרי אישור Google (יכול לקחת ימים) — המכסה תיפתח
+3. בנוסף: Cloud Console → **APIs & Services → Quotas** →
+   חפש `mybusinessaccountmanagement` → בקש העלאה ל-Requests per minute
+
+עד שזה מאושר — תקבל:
+`Quota exceeded for quota metric 'Requests'`
+
+זה **לא** באג בקוד — זו מגבלת Google.
+
+---
+
 ## 5. שגיאות נפוצות
 
 | שגיאה | פתרון |

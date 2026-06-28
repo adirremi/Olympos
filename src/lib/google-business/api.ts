@@ -58,6 +58,11 @@ export async function fetchGoogleBusinessLocations(
   };
 
   if (!accountsResponse.ok) {
+    if (accountsResponse.status === 429) {
+      throw new Error(
+        "Google Business Profile API quota is 0/limited for this project. Request API access from Google (see GOOGLE_SETUP.md) and try again later.",
+      );
+    }
     throw new Error(
       accountsPayload.error?.message ?? "Failed to load Google Business accounts.",
     );
@@ -81,6 +86,11 @@ export async function fetchGoogleBusinessLocations(
     };
 
     if (!locationsResponse.ok) {
+      if (locationsResponse.status === 429) {
+        throw new Error(
+          "Google Business Profile API quota is 0/limited for this project. Request API access from Google (see GOOGLE_SETUP.md) and try again later.",
+        );
+      }
       throw new Error(
         locationsPayload.error?.message ??
           `Failed to load locations for ${account.accountName ?? accountId}.`,
