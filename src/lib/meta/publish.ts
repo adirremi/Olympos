@@ -1,34 +1,52 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { publishImageToInstagram, publishToFacebookPage } from "./api";
+import { buildOverlayImageUrl } from "@/lib/image/overlay";
+import {
+  publishImageToInstagram,
+  publishPhotoToFacebookPage,
+  publishToFacebookPage,
+} from "./api";
+import type { MetaPlatform, PublishResult } from "./types";
 
-type PublishResult = {
-  facebook?: { ok: boolean; id?: string; error?: string };
-  instagram?: { ok: boolean; id?: string; error?: string };
-};
+export type { MetaPlatform, PublishResult } from "./types";
 
 type ConnectionRow = {
   id: string;
-  provider: "facebook" | "instagram";
+  provider: MetaPlatform;
   account_id: string | null;
-  metadata: Record<string, unknown> | null;
 };
 
-// Publishes a check-in to the business's connected Meta platforms.
-// Facebook: text post (description + address). Instagram: first image + caption.
+function locationLabel(checkIn: {
+  city?: string | null;
+  region?: string | null;
+  country?: string | null;
+}): string | null {
+  const parts = [checkIn.city, checkIn.region, checkIn.country].filter(Boolean);
+  return parts.length > 0 ? parts.join(", ") : null;
+}
+
+// Publishes a check-in to the selected Meta platforms. Overlays the business
+// name + location onto the image before posting.
 export async function publishCheckInToMeta(
   checkInId: string,
+  platforms: MetaPlatform[] = ["facebook", "instagram"],
 ): Promise<PublishResult> {
   const admin = createAdminClient();
 
   const { data: checkIn, error: checkInError } = await admin
     .from("check_ins")
-    .select("id, business_id, full_address, description")
+    .select(
+      "id, business_id, full_address, description, city, region, country, businesses ( name )",
+    )
     .eq("id", checkInId)
     .single();
 
   if (checkInError || !checkIn) {
     throw new Error(checkInError?.message ?? "Check-in not found.");
   }
+
+  const businessName = Array.isArray(checkIn.businesses)
+    ? checkIn.businesses[0]?.name
+    : (checkIn.businesses as { name?: string } | null)?.name;
 
   const { data: media } = await admin
     .from("check_in_media")
@@ -38,13 +56,25 @@ export async function publishCheckInToMeta(
     .order("sort_order")
     .limit(1);
 
-  const imageUrl = media?.[0]?.image_url as string | undefined;
+  const originalImageUrl = media?.[0]?.image_url as string | undefined;
+  const label = locationLabel(checkIn);
+
+  // Build the overlay image once and reuse for both platforms.
+  let postImageUrl = originalImageUrl;
+  if (originalImageUrl) {
+    postImageUrl = await buildOverlayImageUrl({
+      imageUrl: originalImageUrl,
+      businessName: businessName ?? "",
+      locationLabel: label,
+      checkInId,
+    });
+  }
 
   const { data: connections } = await admin
     .from("platform_connections")
-    .select("id, provider, account_id, metadata")
+    .select("id, provider, account_id")
     .eq("business_id", checkIn.business_id)
-    .in("provider", ["facebook", "instagram"])
+    .in("provider", platforms)
     .eq("status", "connected");
 
   const rows = (connections ?? []) as ConnectionRow[];
@@ -68,11 +98,18 @@ export async function publishCheckInToMeta(
 
     if (connection.provider === "facebook" && connection.account_id) {
       try {
-        const id = await publishToFacebookPage(
-          connection.account_id,
-          pageToken,
-          caption || checkIn.full_address,
-        );
+        const id = postImageUrl
+          ? await publishPhotoToFacebookPage(
+              connection.account_id,
+              pageToken,
+              postImageUrl,
+              caption || checkIn.full_address,
+            )
+          : await publishToFacebookPage(
+              connection.account_id,
+              pageToken,
+              caption || checkIn.full_address,
+            );
         result.facebook = { ok: true, id };
       } catch (error) {
         result.facebook = {
@@ -83,7 +120,7 @@ export async function publishCheckInToMeta(
     }
 
     if (connection.provider === "instagram" && connection.account_id) {
-      if (!imageUrl) {
+      if (!postImageUrl) {
         result.instagram = {
           ok: false,
           error: "Instagram requires at least one image on the check-in.",
@@ -94,7 +131,7 @@ export async function publishCheckInToMeta(
         const id = await publishImageToInstagram(
           connection.account_id,
           pageToken,
-          imageUrl,
+          postImageUrl,
           caption || checkIn.full_address,
         );
         result.instagram = { ok: true, id };

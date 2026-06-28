@@ -49,6 +49,9 @@ export function CheckInForm({ businesses }: { businesses: Business[] }) {
             fullAddress: selection.fullAddress,
             lat: selection.lat,
             lng: selection.lng,
+            city: selection.city ?? null,
+            region: selection.region ?? null,
+            country: selection.country ?? null,
             description: String(formData.get("description") ?? ""),
             ctaType: String(formData.get("ctaType")) as CheckInCtaType,
           });
@@ -91,9 +94,15 @@ export function CheckInForm({ businesses }: { businesses: Business[] }) {
           placeholder="Search address…"
         />
         {selection ? (
-          <p className="text-xs text-slate-500">
-            {selection.lat.toFixed(6)}, {selection.lng.toFixed(6)}
-          </p>
+          <div className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">
+            <p className="font-medium text-slate-800">{selection.fullAddress}</p>
+            <p className="mt-0.5">
+              {[selection.city, selection.region, selection.country]
+                .filter(Boolean)
+                .join(", ") || "—"}{" "}
+              · {selection.lat.toFixed(5)}, {selection.lng.toFixed(5)}
+            </p>
+          </div>
         ) : null}
       </div>
 

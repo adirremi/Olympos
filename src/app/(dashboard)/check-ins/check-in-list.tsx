@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { publishCheckInToSocial, updateCheckInStatus } from "./actions";
+import type { MetaPlatform, PublishResult } from "@/lib/meta/types";
 import type { CheckIn } from "@/types/database";
 
 type Media = { image_url: string; media_type: "image" | "video"; sort_order: number };
@@ -21,9 +22,90 @@ function businessName(businesses: CheckInRow["businesses"]): string {
   return businesses.name;
 }
 
+function PublishControls({ checkInId }: { checkInId: string }) {
+  const [isPending, startTransition] = useTransition();
+  const [platforms, setPlatforms] = useState<Record<MetaPlatform, boolean>>({
+    facebook: true,
+    instagram: true,
+  });
+  const [results, setResults] = useState<PublishResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  function toggle(platform: MetaPlatform) {
+    setPlatforms((prev) => ({ ...prev, [platform]: !prev[platform] }));
+  }
+
+  return (
+    <div className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
+      <div className="flex flex-wrap items-center gap-4">
+        <span className="text-xs font-medium text-slate-700">Publish to:</span>
+        {(["facebook", "instagram"] as MetaPlatform[]).map((platform) => (
+          <label
+            key={platform}
+            className="flex items-center gap-1.5 text-xs text-slate-700"
+          >
+            <input
+              type="checkbox"
+              checked={platforms[platform]}
+              onChange={() => toggle(platform)}
+              className="h-3.5 w-3.5"
+            />
+            <span className="capitalize">{platform}</span>
+          </label>
+        ))}
+        <button
+          type="button"
+          disabled={isPending}
+          onClick={() => {
+            setError(null);
+            setResults(null);
+            const selected = (Object.keys(platforms) as MetaPlatform[]).filter(
+              (platform) => platforms[platform],
+            );
+            startTransition(async () => {
+              const response = await publishCheckInToSocial(checkInId, selected);
+              if (response.error) {
+                setError(response.error);
+                return;
+              }
+              setResults(response.results ?? null);
+            });
+          }}
+          className="ml-auto rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-60"
+        >
+          {isPending ? "Publishing…" : "Publish"}
+        </button>
+      </div>
+
+      {error ? <p className="text-xs text-red-600">{error}</p> : null}
+
+      {results ? (
+        <ul className="space-y-1">
+          {(["facebook", "instagram"] as MetaPlatform[]).map((platform) => {
+            const result = results[platform];
+            if (!result) {
+              return null;
+            }
+            return (
+              <li
+                key={platform}
+                className={`flex items-center gap-2 text-xs ${
+                  result.ok ? "text-green-700" : "text-red-600"
+                }`}
+              >
+                <span className="font-medium capitalize">{platform}:</span>
+                <span>{result.ok ? "posted ✓" : result.error}</span>
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
 export function CheckInList({ checkIns }: { checkIns: CheckInRow[] }) {
   const [isPending, startTransition] = useTransition();
-  const [socialStatus, setSocialStatus] = useState<Record<string, string>>({});
 
   if (checkIns.length === 0) {
     return (
@@ -41,7 +123,7 @@ export function CheckInList({ checkIns }: { checkIns: CheckInRow[] }) {
         );
 
         return (
-          <li key={checkIn.id} className="space-y-2 p-5">
+          <li key={checkIn.id} className="space-y-3 p-5">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="font-medium text-slate-900">
@@ -109,31 +191,9 @@ export function CheckInList({ checkIns }: { checkIns: CheckInRow[] }) {
                   Archive
                 </button>
               ) : null}
-              <button
-                type="button"
-                disabled={isPending}
-                onClick={() => {
-                  setSocialStatus((prev) => ({
-                    ...prev,
-                    [checkIn.id]: "Publishing…",
-                  }));
-                  startTransition(async () => {
-                    const result = await publishCheckInToSocial(checkIn.id);
-                    setSocialStatus((prev) => ({
-                      ...prev,
-                      [checkIn.id]: result.error ?? result.message ?? "Done.",
-                    }));
-                  });
-                }}
-                className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100"
-              >
-                Publish to social
-              </button>
             </div>
 
-            {socialStatus[checkIn.id] ? (
-              <p className="text-xs text-slate-500">{socialStatus[checkIn.id]}</p>
-            ) : null}
+            <PublishControls checkInId={checkIn.id} />
           </li>
         );
       })}

@@ -62,6 +62,37 @@ export async function publishToFacebookPage(
   return payload.id;
 }
 
+// Publish a photo (with caption) to a Facebook Page.
+export async function publishPhotoToFacebookPage(
+  pageId: string,
+  pageToken: string,
+  imageUrl: string,
+  caption: string,
+): Promise<string> {
+  const body = new URLSearchParams({
+    url: imageUrl,
+    caption,
+    access_token: pageToken,
+  });
+
+  const response = await fetch(`${META_GRAPH_BASE}/${pageId}/photos`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body,
+  });
+  const payload = (await response.json()) as {
+    id?: string;
+    post_id?: string;
+    error?: { message?: string };
+  };
+
+  if (!response.ok || (!payload.id && !payload.post_id)) {
+    throw new Error(payload.error?.message ?? "Facebook photo publish failed.");
+  }
+
+  return payload.post_id ?? payload.id ?? "";
+}
+
 // Publish a single image to Instagram: create a media container, then publish.
 export async function publishImageToInstagram(
   igUserId: string,

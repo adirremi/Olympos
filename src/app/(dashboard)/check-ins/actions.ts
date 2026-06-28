@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { publishCheckInToMeta } from "@/lib/meta/publish";
+import type { MetaPlatform, PublishResult } from "@/lib/meta/types";
 import { createClient } from "@/lib/supabase/server";
 import type { CheckInCtaType } from "@/types/database";
 
@@ -10,6 +11,9 @@ type CreateCheckInInput = {
   fullAddress: string;
   lat: number;
   lng: number;
+  city?: string | null;
+  region?: string | null;
+  country?: string | null;
   description?: string;
   ctaType: CheckInCtaType;
 };
@@ -39,19 +43,37 @@ export async function createCheckIn(input: CreateCheckInInput) {
     return { error: "Address is required." };
   }
 
-  const { data, error } = await supabase
+  const baseRow = {
+    business_id: input.businessId,
+    full_address: input.fullAddress.trim(),
+    lat: input.lat,
+    lng: input.lng,
+    description: input.description?.trim() || null,
+    cta_type: input.ctaType,
+    status: "draft" as const,
+  };
+
+  // Try with address components; fall back if migration 008 hasn't run.
+  let inserted = await supabase
     .from("check_ins")
     .insert({
-      business_id: input.businessId,
-      full_address: input.fullAddress.trim(),
-      lat: input.lat,
-      lng: input.lng,
-      description: input.description?.trim() || null,
-      cta_type: input.ctaType,
-      status: "draft",
+      ...baseRow,
+      city: input.city ?? null,
+      region: input.region ?? null,
+      country: input.country ?? null,
     })
     .select("*")
     .single();
+
+  if (inserted.error) {
+    inserted = await supabase
+      .from("check_ins")
+      .insert(baseRow)
+      .select("*")
+      .single();
+  }
+
+  const { data, error } = inserted;
 
   if (error) {
     return { error: error.message };
@@ -90,7 +112,10 @@ export async function updateCheckInStatus(
   return { success: true };
 }
 
-export async function publishCheckInToSocial(checkInId: string) {
+export async function publishCheckInToSocial(
+  checkInId: string,
+  platforms: MetaPlatform[] = ["facebook", "instagram"],
+): Promise<{ error?: string; results?: PublishResult }> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -118,27 +143,18 @@ export async function publishCheckInToSocial(checkInId: string) {
     return { error: "Not allowed." };
   }
 
+  if (platforms.length === 0) {
+    return { error: "Select at least one platform." };
+  }
+
   try {
-    const result = await publishCheckInToMeta(checkInId);
-    const parts: string[] = [];
-    if (result.facebook) {
-      parts.push(
-        result.facebook.ok
-          ? "Facebook: posted"
-          : `Facebook: ${result.facebook.error}`,
-      );
+    const results = await publishCheckInToMeta(checkInId, platforms);
+    if (!results.facebook && !results.instagram) {
+      return {
+        error: "No matching Facebook/Instagram connection for this business.",
+      };
     }
-    if (result.instagram) {
-      parts.push(
-        result.instagram.ok
-          ? "Instagram: posted"
-          : `Instagram: ${result.instagram.error}`,
-      );
-    }
-    if (parts.length === 0) {
-      return { error: "No Facebook/Instagram connection for this business." };
-    }
-    return { success: true, message: parts.join(" · ") };
+    return { results };
   } catch (error) {
     return { error: error instanceof Error ? error.message : "Publish failed." };
   }

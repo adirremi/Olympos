@@ -28,10 +28,38 @@ export function AddressAutocomplete({
     let cancelled = false;
     let appended: HTMLElement | null = null;
 
+    function parseComponents(place: any) {
+      const components: any[] =
+        place?.addressComponents ?? place?.address_components ?? [];
+
+      function find(type: string, short = false): string | null {
+        const match = components.find((c) => (c?.types ?? []).includes(type));
+        if (!match) {
+          return null;
+        }
+        return short
+          ? match.shortText ?? match.short_name ?? null
+          : match.longText ?? match.long_name ?? null;
+      }
+
+      const city =
+        find("locality") ??
+        find("postal_town") ??
+        find("sublocality_level_1") ??
+        find("sublocality") ??
+        find("administrative_area_level_2");
+      const region = find("administrative_area_level_1");
+      const country = find("country");
+
+      return { city, region, country };
+    }
+
     async function emitFromPlace(place: any) {
       try {
         if (place?.fetchFields) {
-          await place.fetchFields({ fields: ["formattedAddress", "location"] });
+          await place.fetchFields({
+            fields: ["formattedAddress", "location", "addressComponents"],
+          });
         }
         const fullAddress = place?.formattedAddress ?? place?.formatted_address;
         const lat = place?.location?.lat?.() ?? place?.geometry?.location?.lat?.();
@@ -42,8 +70,10 @@ export function AddressAutocomplete({
           return;
         }
 
+        const { city, region, country } = parseComponents(place);
+
         setError(null);
-        onSelectRef.current({ fullAddress, lat, lng });
+        onSelectRef.current({ fullAddress, lat, lng, city, region, country });
       } catch (fieldError) {
         setError(
           fieldError instanceof Error
@@ -102,7 +132,7 @@ export function AddressAutocomplete({
           appended = input;
 
           const autocomplete = new places.Autocomplete(input, {
-            fields: ["formatted_address", "geometry"],
+            fields: ["formatted_address", "geometry", "address_components"],
             types: ["address"],
           });
           autocomplete.addListener("place_changed", () => {
