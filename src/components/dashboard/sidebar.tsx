@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   Building2,
   ClipboardList,
+  Code2,
   LayoutDashboard,
   Link2,
   MapPinned,
@@ -19,6 +20,7 @@ const navItems = [
   { href: "/businesses", label: "My Businesses", icon: Building2 },
   { href: "/check-ins", label: "Check-ins", icon: ClipboardList },
   { href: "/map", label: "Map Check-ins", icon: MapPinned },
+  { href: "/widget", label: "Widget", icon: Code2 },
   { href: "/connections", label: "Connections", icon: Link2 },
 ];
 

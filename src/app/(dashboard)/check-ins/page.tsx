@@ -31,7 +31,8 @@ export default async function CheckInsPage() {
             cta_type,
             status,
             created_at,
-            businesses ( name )
+            businesses ( name ),
+            check_in_media ( image_url, media_type, sort_order )
           `,
           )
           .in("business_id", businessIds)

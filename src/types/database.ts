@@ -47,6 +47,27 @@ export type PlatformConnection = {
   updated_at: string;
 };
 
+export type WidgetMedia = {
+  url: string;
+  type: "image" | "video";
+};
+
+export type WidgetCheckIn = {
+  id: string;
+  full_address: string;
+  lat: number;
+  lng: number;
+  description: string | null;
+  cta_type: CheckInCtaType;
+  created_at: string;
+  media: WidgetMedia[];
+};
+
+export type WidgetData = {
+  business: { id: string; name: string } | null;
+  check_ins: WidgetCheckIn[];
+};
+
 export type BusinessInvitation = {
   id: string;
   business_id: string;
