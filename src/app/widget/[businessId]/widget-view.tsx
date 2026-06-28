@@ -4,10 +4,13 @@ import { useState } from "react";
 import { WidgetMap } from "./widget-map";
 import type { WidgetCheckIn, WidgetData } from "@/types/database";
 
+type LightboxMedia = { url: string; type: "image" | "video" };
+
 export function WidgetView({ data }: { data: WidgetData }) {
   const [active, setActive] = useState<WidgetCheckIn | null>(
     data.check_ins[0] ?? null,
   );
+  const [lightbox, setLightbox] = useState<LightboxMedia | null>(null);
 
   if (data.check_ins.length === 0) {
     return (
@@ -54,14 +57,18 @@ export function WidgetView({ data }: { data: WidgetData }) {
               {checkIn.media.length > 0 ? (
                 <div className="mt-3 grid grid-cols-3 gap-2">
                   {checkIn.media.slice(0, 6).map((media, index) => (
-                    <div
+                    <button
+                      type="button"
                       key={`${checkIn.id}-${index}`}
-                      className="overflow-hidden rounded-lg bg-slate-100"
+                      className="group relative overflow-hidden rounded-lg bg-slate-100"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setLightbox({ url: media.url, type: media.type });
+                      }}
                     >
                       {media.type === "video" ? (
                         <video
                           src={media.url}
-                          controls
                           className="h-20 w-full object-cover"
                         />
                       ) : (
@@ -70,10 +77,11 @@ export function WidgetView({ data }: { data: WidgetData }) {
                           src={media.url}
                           alt=""
                           loading="lazy"
-                          className="h-20 w-full object-cover"
+                          className="h-20 w-full object-cover transition-transform group-hover:scale-105"
                         />
                       )}
-                    </div>
+                      <span className="pointer-events-none absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/10" />
+                    </button>
                   ))}
                 </div>
               ) : null}
@@ -85,6 +93,39 @@ export function WidgetView({ data }: { data: WidgetData }) {
           ))}
         </ul>
       </div>
+
+      {lightbox ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4"
+          onClick={() => setLightbox(null)}
+        >
+          <button
+            type="button"
+            aria-label="Close"
+            className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-2xl leading-none text-white hover:bg-white/20"
+            onClick={() => setLightbox(null)}
+          >
+            ×
+          </button>
+          {lightbox.type === "video" ? (
+            <video
+              src={lightbox.url}
+              controls
+              autoPlay
+              className="max-h-[90vh] max-w-[95vw] rounded-lg"
+              onClick={(event) => event.stopPropagation()}
+            />
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={lightbox.url}
+              alt=""
+              className="max-h-[90vh] max-w-[95vw] rounded-lg object-contain"
+              onClick={(event) => event.stopPropagation()}
+            />
+          )}
+        </div>
+      ) : null}
     </div>
   );
 }
