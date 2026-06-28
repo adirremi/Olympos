@@ -1,3 +1,4 @@
+import { headers } from "next/headers";
 import { EmbedCode } from "./embed-code";
 import { createClient } from "@/lib/supabase/server";
 
@@ -13,8 +14,15 @@ export default async function WidgetSettingsPage() {
     .eq("user_id", user!.id)
     .order("name");
 
+  // Derive the public base URL from the current request so preview links and
+  // embed snippets always point at the real deployment (falls back to env).
+  const headerList = await headers();
+  const host =
+    headerList.get("x-forwarded-host") ?? headerList.get("host") ?? "";
+  const proto = headerList.get("x-forwarded-proto") ?? "https";
   const baseUrl =
-    process.env.APP_BASE_URL ?? "https://olympos-beta.vercel.app";
+    process.env.APP_BASE_URL ??
+    (host ? `${proto}://${host}` : "https://olympos-beta.vercel.app");
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
