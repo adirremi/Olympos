@@ -42,10 +42,44 @@ export async function buildOverlayImageUrl({
       .jpeg({ quality: 90 })
       .toBuffer();
 
-    const base = sharp(normalized);
-    const metadata = await base.metadata();
-    const width = metadata.width ?? 1080;
-    const height = metadata.height ?? 1080;
+    const normMeta = await sharp(normalized).metadata();
+    const srcWidth = normMeta.width ?? 1080;
+    const srcHeight = normMeta.height ?? 1080;
+
+    // Instagram feed accepts aspect ratios from 4:5 (0.8) to 1.91:1.
+    // Pad out-of-range images onto a blurred background so nothing is cropped.
+    const MIN_RATIO = 0.8;
+    const MAX_RATIO = 1.91;
+    const ratio = srcWidth / srcHeight;
+
+    let canvasBuffer = normalized;
+    let width = srcWidth;
+    let height = srcHeight;
+
+    if (ratio < MIN_RATIO || ratio > MAX_RATIO) {
+      if (ratio < MIN_RATIO) {
+        width = Math.round(srcHeight * MIN_RATIO);
+        height = srcHeight;
+      } else {
+        width = srcWidth;
+        height = Math.round(srcWidth / MAX_RATIO);
+      }
+
+      const background = await sharp(normalized)
+        .resize({ width, height, fit: "cover" })
+        .blur(40)
+        .modulate({ brightness: 0.85 })
+        .jpeg({ quality: 80 })
+        .toBuffer();
+
+      const left = Math.round((width - srcWidth) / 2);
+      const top = Math.round((height - srcHeight) / 2);
+
+      canvasBuffer = await sharp(background)
+        .composite([{ input: normalized, top, left }])
+        .jpeg({ quality: 90 })
+        .toBuffer();
+    }
 
     const fontSize = Math.max(24, Math.round(width / 24));
     const pad = Math.round(width / 36);
@@ -78,13 +112,13 @@ export async function buildOverlayImageUrl({
 
     let outputBuffer: Buffer;
     try {
-      outputBuffer = await sharp(normalized)
+      outputBuffer = await sharp(canvasBuffer)
         .composite([{ input: Buffer.from(svg), top: 0, left: 0 }])
         .jpeg({ quality: 88 })
         .toBuffer();
     } catch {
-      // If drawing text fails, still publish the clean JPEG.
-      outputBuffer = normalized;
+      // If drawing text fails, still publish the clean (padded) JPEG.
+      outputBuffer = canvasBuffer;
     }
 
     const admin = createAdminClient();
