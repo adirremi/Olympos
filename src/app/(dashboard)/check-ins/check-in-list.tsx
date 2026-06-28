@@ -52,7 +52,11 @@ function MediaAdder({ checkInId }: { checkInId: string }) {
 }
 
 function PublishControls({ checkInId }: { checkInId: string }) {
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [busyPlatform, setBusyPlatform] = useState<MetaPlatform | "all" | null>(
+    null,
+  );
   const [platforms, setPlatforms] = useState<Record<MetaPlatform, boolean>>({
     facebook: true,
     instagram: true,
@@ -62,6 +66,26 @@ function PublishControls({ checkInId }: { checkInId: string }) {
 
   function toggle(platform: MetaPlatform) {
     setPlatforms((prev) => ({ ...prev, [platform]: !prev[platform] }));
+  }
+
+  function run(selected: MetaPlatform[], busy: MetaPlatform | "all") {
+    if (selected.length === 0) {
+      setError("Select at least one platform.");
+      return;
+    }
+    setError(null);
+    setBusyPlatform(busy);
+    startTransition(async () => {
+      const response = await publishCheckInToSocial(checkInId, selected);
+      setBusyPlatform(null);
+      if (response.error) {
+        setError(response.error);
+        return;
+      }
+      // Merge so a single-platform retry updates only that platform's result.
+      setResults((prev) => ({ ...(prev ?? {}), ...response.results }));
+      router.refresh();
+    });
   }
 
   return (
@@ -85,24 +109,17 @@ function PublishControls({ checkInId }: { checkInId: string }) {
         <button
           type="button"
           disabled={isPending}
-          onClick={() => {
-            setError(null);
-            setResults(null);
-            const selected = (Object.keys(platforms) as MetaPlatform[]).filter(
-              (platform) => platforms[platform],
-            );
-            startTransition(async () => {
-              const response = await publishCheckInToSocial(checkInId, selected);
-              if (response.error) {
-                setError(response.error);
-                return;
-              }
-              setResults(response.results ?? null);
-            });
-          }}
+          onClick={() =>
+            run(
+              (Object.keys(platforms) as MetaPlatform[]).filter(
+                (platform) => platforms[platform],
+              ),
+              "all",
+            )
+          }
           className="ml-auto rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-60"
         >
-          {isPending ? "Publishing…" : "Publish"}
+          {busyPlatform === "all" ? "Publishing…" : "Publish"}
         </button>
       </div>
 
@@ -124,6 +141,18 @@ function PublishControls({ checkInId }: { checkInId: string }) {
               >
                 <span className="font-medium capitalize">{platform}:</span>
                 <span>{result.ok ? "posted ✓" : result.error}</span>
+                {!result.ok ? (
+                  <button
+                    type="button"
+                    disabled={isPending}
+                    onClick={() => run([platform], platform)}
+                    className="rounded border border-red-300 px-2 py-0.5 text-[11px] font-medium text-red-700 hover:bg-red-50 disabled:opacity-60"
+                  >
+                    {busyPlatform === platform
+                      ? "Retrying…"
+                      : `Retry ${platform}`}
+                  </button>
+                ) : null}
               </li>
             );
           })}
@@ -192,20 +221,6 @@ export function CheckInList({ checkIns }: { checkIns: CheckInRow[] }) {
             ) : null}
 
             <div className="flex flex-wrap gap-2">
-              {checkIn.status !== "published" ? (
-                <button
-                  type="button"
-                  disabled={isPending}
-                  onClick={() => {
-                    startTransition(async () => {
-                      await updateCheckInStatus(checkIn.id, "published");
-                    });
-                  }}
-                  className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-medium text-white"
-                >
-                  Mark published
-                </button>
-              ) : null}
               {checkIn.status !== "archived" ? (
                 <button
                   type="button"

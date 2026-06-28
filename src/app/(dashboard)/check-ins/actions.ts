@@ -232,6 +232,20 @@ export async function publishCheckInToSocial(
         error: "No matching Facebook/Instagram connection for this business.",
       };
     }
+
+    // Publishing to any social network also makes the check-in public, so it
+    // shows up on the widget and map automatically.
+    const anySuccess = Object.values(results).some((r) => r?.ok);
+    if (anySuccess) {
+      await supabase
+        .from("check_ins")
+        .update({ status: "published" })
+        .eq("id", checkInId);
+      revalidatePath("/check-ins");
+      revalidatePath("/dashboard");
+      revalidatePath("/map");
+    }
+
     return { results };
   } catch (error) {
     return { error: error instanceof Error ? error.message : "Publish failed." };
