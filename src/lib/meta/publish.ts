@@ -25,6 +25,25 @@ function locationLabel(checkIn: {
   return parts.length > 0 ? parts.join(", ") : null;
 }
 
+// Returns the first URL whose object actually exists (HTTP 200). Meta fetches
+// images server-side, so a 404 URL fails the whole publish.
+async function firstReachableUrl(urls: string[]): Promise<string | undefined> {
+  for (const url of urls) {
+    try {
+      let res = await fetch(url, { method: "HEAD" });
+      if (!res.ok) {
+        res = await fetch(url, { method: "GET" });
+      }
+      if (res.ok) {
+        return url;
+      }
+    } catch {
+      // try the next candidate
+    }
+  }
+  return undefined;
+}
+
 // Publishes a check-in to the selected Meta platforms. Overlays the business
 // name + location onto the image before posting.
 export async function publishCheckInToMeta(
@@ -55,13 +74,19 @@ export async function publishCheckInToMeta(
 
   const { data: media } = await admin
     .from("check_in_media")
-    .select("image_url, media_type, sort_order")
+    .select("image_url, media_type, sort_order, created_at")
     .eq("check_in_id", checkInId)
     .eq("media_type", "image")
-    .order("sort_order")
-    .limit(1);
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: false });
 
-  const originalImageUrl = media?.[0]?.image_url as string | undefined;
+  // A check-in can have stale rows whose storage object was removed. Pick the
+  // first image whose file is actually reachable so we never hand Meta a dead
+  // URL (which surfaces as "media could not be fetched" / "invalid image").
+  const candidateUrls = (media ?? [])
+    .map((m) => m.image_url as string)
+    .filter(Boolean);
+  const originalImageUrl = await firstReachableUrl(candidateUrls);
   const label = locationLabel(checkIn);
 
   // Build the overlay image once and reuse for both platforms.

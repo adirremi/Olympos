@@ -94,41 +94,44 @@ export async function buildOverlayImageUrl({
         .toBuffer();
     }
 
-    const fontSize = Math.max(22, Math.round(width / 26));
-    const margin = Math.round(width / 36);
-
-    const composites: Parameters<ReturnType<typeof sharp>["composite"]>[0] = [];
-
-    if (businessName) {
-      const label = makeLabel(businessName, fontSize);
-      const meta = await sharp(label).metadata();
-      composites.push({
-        input: label,
-        top: margin,
-        left: Math.max(margin, width - (meta.width ?? 0) - margin),
-      });
-    }
-
-    if (locationLabel) {
-      const label = makeLabel(locationLabel, Math.round(fontSize * 0.85));
-      const meta = await sharp(label).metadata();
-      composites.push({
-        input: label,
-        top: Math.max(margin, height - (meta.height ?? 0) - margin),
-        left: margin,
-      });
-    }
-
+    // Text overlay is best-effort: if SVG/text rasterization fails for any
+    // reason (e.g. no fonts on the host), we still upload the clean normalized
+    // JPEG so publishing succeeds.
     let outputBuffer = canvasBuffer;
-    if (composites.length > 0) {
-      try {
+    try {
+      const fontSize = Math.max(22, Math.round(width / 26));
+      const margin = Math.round(width / 36);
+      const composites: Parameters<ReturnType<typeof sharp>["composite"]>[0] =
+        [];
+
+      if (businessName) {
+        const label = makeLabel(businessName, fontSize);
+        const meta = await sharp(label).metadata();
+        composites.push({
+          input: label,
+          top: margin,
+          left: Math.max(margin, width - (meta.width ?? 0) - margin),
+        });
+      }
+
+      if (locationLabel) {
+        const label = makeLabel(locationLabel, Math.round(fontSize * 0.85));
+        const meta = await sharp(label).metadata();
+        composites.push({
+          input: label,
+          top: Math.max(margin, height - (meta.height ?? 0) - margin),
+          left: margin,
+        });
+      }
+
+      if (composites.length > 0) {
         outputBuffer = await sharp(canvasBuffer)
           .composite(composites)
           .jpeg({ quality: 88 })
           .toBuffer();
-      } catch {
-        outputBuffer = canvasBuffer;
       }
+    } catch {
+      outputBuffer = canvasBuffer;
     }
 
     const admin = createAdminClient();
