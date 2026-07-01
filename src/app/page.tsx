@@ -40,10 +40,10 @@ function Logo({ className = "" }: { className?: string }) {
   return (
     <span className={`flex items-center gap-2 ${className}`}>
       <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 text-sm font-bold text-white shadow-sm">
-        F
+        O
       </span>
       <span className="text-lg font-bold tracking-tight text-slate-900">
-        FieldCheck
+        Olympos Sync
       </span>
     </span>
   );
@@ -151,7 +151,7 @@ function ProductMockup() {
           <span className="h-3 w-3 rounded-full bg-yellow-400" />
           <span className="h-3 w-3 rounded-full bg-green-400" />
           <span className="ml-3 hidden rounded-md bg-white px-3 py-1 text-xs text-slate-400 shadow-inner sm:block">
-            app.fieldcheck.io/check-ins
+            app.olympos.io/check-ins
           </span>
         </div>
 
@@ -385,7 +385,7 @@ function Features() {
             Everything you need to market your field work
           </h2>
           <p className="mt-4 text-lg text-slate-600">
-            Stop juggling apps. FieldCheck turns a single check-in into content
+            Stop juggling apps. Olympos Sync turns a single check-in into content
             across every channel that matters.
           </p>
         </div>
@@ -428,7 +428,7 @@ function HowItWorks() {
       step: "02",
       title: "We brand & format",
       description:
-        "FieldCheck overlays your business name and location, optimizes the image, and writes the caption.",
+        "Olympos Sync overlays your business name and location, optimizes the image, and writes the caption.",
       tint: "from-indigo-600 to-purple-600",
     },
     {
@@ -560,7 +560,7 @@ function FinalCta() {
             Ready to turn every job into marketing?
           </h2>
           <p className="mt-4 text-lg text-blue-100">
-            Join local businesses using FieldCheck to build trust and win more
+            Join local businesses using Olympos Sync to build trust and win more
             work — automatically.
           </p>
           <Link
@@ -584,7 +584,7 @@ function SiteFooter() {
       <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-6 py-8 sm:flex-row">
         <Logo />
         <p className="text-xs text-slate-500">
-          © {new Date().getFullYear()} FieldCheck. All rights reserved.
+          © {new Date().getFullYear()} Olympos Sync. All rights reserved.
         </p>
         <Link
           href="/login"

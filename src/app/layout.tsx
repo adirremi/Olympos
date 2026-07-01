@@ -8,7 +8,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "FieldCheck · Field Jobs Dashboard",
+  title: "Olympos Sync · Field Jobs Dashboard",
   description:
     "Log field jobs, upload photos, and publish check-ins for local businesses.",
 };

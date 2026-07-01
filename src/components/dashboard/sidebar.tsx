@@ -64,7 +64,7 @@ export function DashboardSidebar({
   return (
     <>
       <div className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3 lg:hidden">
-        <span className="text-sm font-semibold text-slate-900">FieldCheck</span>
+        <span className="text-sm font-semibold text-slate-900">Olympos Sync</span>
         <button
           type="button"
           onClick={() => setMobileOpen((open) => !open)}
@@ -91,7 +91,7 @@ export function DashboardSidebar({
         )}
       >
         <div className="hidden border-b border-slate-200 px-6 py-5 lg:block">
-          <p className="text-lg font-semibold text-slate-900">FieldCheck</p>
+          <p className="text-lg font-semibold text-slate-900">Olympos Sync</p>
           <p className="mt-1 text-xs text-slate-500">Field jobs & check-ins</p>
         </div>
 
