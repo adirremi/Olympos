@@ -158,44 +158,42 @@ function ProductMockup() {
         <div className="grid gap-4 p-4 sm:grid-cols-5 sm:p-6">
           {/* map panel */}
           <div className="relative sm:col-span-3">
-            <div className="relative h-56 overflow-hidden rounded-xl bg-gradient-to-br from-emerald-50 via-sky-50 to-indigo-50 sm:h-72">
-              <div
-                aria-hidden
-                className="absolute inset-0 opacity-60 [background-image:linear-gradient(#cbd5e120_1px,transparent_1px),linear-gradient(90deg,#cbd5e120_1px,transparent_1px)] [background-size:28px_28px]"
-              />
-              <Pin className="left-[22%] top-[35%]" />
-              <Pin className="left-[55%] top-[28%]" delay />
-              <Pin className="left-[68%] top-[62%]" />
-              <Pin className="left-[38%] top-[68%]" delay />
+            <div className="relative h-64 overflow-hidden rounded-xl border border-slate-200 sm:h-96">
+              <MapBackdrop />
+              {PIN_POSITIONS.map(([left, top], index) => (
+                <MapMarker
+                  key={index}
+                  left={left}
+                  top={top}
+                  active={index % 6 === 0}
+                />
+              ))}
               <span className="absolute bottom-3 left-3 rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-slate-600 shadow-sm">
-                42 jobs mapped this month
+                {PIN_POSITIONS.length} jobs mapped across New York
               </span>
             </div>
           </div>
 
-          {/* check-in card */}
+          {/* jobs gallery */}
           <div className="sm:col-span-2">
-            <div className="rounded-xl border border-slate-200 p-4">
-              <div className="h-24 rounded-lg bg-gradient-to-br from-slate-800 to-slate-600" />
-              <p className="mt-3 text-sm font-semibold text-slate-900">
-                Ace Locksmith
+            <div className="flex h-full flex-col rounded-xl border border-slate-200 p-4">
+              <p className="text-sm font-semibold text-slate-900">
+                Recent jobs
               </p>
-              <p className="text-xs text-slate-500">Brooklyn, New York</p>
+              <p className="text-xs text-slate-500">Live on your website</p>
 
-              <div className="mt-4 space-y-2">
-                <PublishRow
-                  icon={<FacebookIcon className="h-4 w-4" style={{ color: "#1877F2" }} />}
-                  label="Facebook"
-                />
-                <PublishRow icon={<InstagramIcon className="h-4 w-4" />} label="Instagram" />
-                <PublishRow
-                  icon={<GoogleBusinessIcon className="h-4 w-4" />}
-                  label="Google Business"
-                />
-                <PublishRow
-                  icon={<YoutubeIcon className="h-4 w-4" />}
-                  label="YouTube"
-                />
+              <div className="mt-3 grid flex-1 grid-cols-2 gap-2">
+                {GALLERY.map((item, index) => (
+                  <div
+                    key={index}
+                    className="group relative overflow-hidden rounded-lg"
+                  >
+                    <div className={`h-full min-h-16 w-full ${item.tint}`} />
+                    <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent px-2 py-1 text-[10px] font-medium text-white">
+                      {item.label}
+                    </span>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
@@ -205,39 +203,97 @@ function ProductMockup() {
   );
 }
 
-function Pin({ className = "", delay = false }: { className?: string; delay?: boolean }) {
+// Scattered job locations across a zoomed-out Manhattan (left %, top %).
+// Kept off the water (left river / bottom-right) so pins land on "streets".
+const PIN_POSITIONS: [number, number][] = [
+  [32, 12], [40, 9], [47, 16], [36, 24], [44, 28],
+  [52, 11], [56, 21], [49, 35], [41, 42], [34, 38],
+  [59, 32], [64, 15], [61, 44], [53, 50], [46, 56],
+  [39, 54], [31, 49], [67, 28], [70, 42], [57, 60],
+  [49, 66], [42, 69], [63, 55], [72, 50], [36, 63],
+  [51, 78],
+];
+
+const GALLERY = [
+  { label: "Manhattan, NY", tint: "bg-gradient-to-br from-amber-200 to-orange-300" },
+  { label: "Brooklyn, NY", tint: "bg-gradient-to-br from-sky-200 to-indigo-300" },
+  { label: "Queens, NY", tint: "bg-gradient-to-br from-emerald-200 to-teal-300" },
+  { label: "Bronx, NY", tint: "bg-gradient-to-br from-rose-200 to-pink-300" },
+  { label: "Harlem, NY", tint: "bg-gradient-to-br from-violet-200 to-purple-300" },
+  { label: "Midtown, NY", tint: "bg-gradient-to-br from-slate-300 to-slate-400" },
+];
+
+function MapMarker({
+  left,
+  top,
+  active,
+}: {
+  left: number;
+  top: number;
+  active: boolean;
+}) {
   return (
-    <span className={`absolute ${className}`}>
-      <span className="relative flex">
-        <span
-          className={`absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-60 ${
-            delay ? "" : "animate-ping"
-          }`}
-        />
-        <MapPinIcon className="relative h-6 w-6 text-blue-600 drop-shadow" />
+    <span
+      className="absolute -translate-x-1/2 -translate-y-full"
+      style={{ left: `${left}%`, top: `${top}%` }}
+    >
+      <span className="relative flex flex-col items-center">
+        {active ? (
+          <span className="absolute top-full inline-flex h-3 w-3 -translate-y-1 animate-ping rounded-full bg-blue-500/60" />
+        ) : null}
+        <MapPinIcon className="relative h-5 w-5 text-blue-600 drop-shadow-sm" />
       </span>
     </span>
   );
 }
 
-function PublishRow({ icon, label }: { icon: React.ReactNode; label: string }) {
+// A stylized, zoomed-out New York map (Hudson + East River, Central Park,
+// avenue/street grid) rendered purely as SVG so it needs no external tiles.
+function MapBackdrop() {
+  const avenues = Array.from({ length: 13 });
+  const streets = Array.from({ length: 11 });
   return (
-    <div className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-1.5">
-      <span className="flex items-center gap-2 text-xs font-medium text-slate-700">
-        {icon}
-        {label}
-      </span>
-      <span className="flex items-center gap-1 text-xs font-semibold text-green-600">
-        <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
-          <path
-            fillRule="evenodd"
-            d="M16.7 5.3a1 1 0 0 1 0 1.4l-7.5 7.5a1 1 0 0 1-1.4 0L3.3 9.7a1 1 0 1 1 1.4-1.4l3.1 3.1 6.8-6.8a1 1 0 0 1 1.4 0z"
-            clipRule="evenodd"
-          />
-        </svg>
-        Posted
-      </span>
-    </div>
+    <svg
+      viewBox="0 0 500 340"
+      preserveAspectRatio="xMidYMid slice"
+      className="absolute inset-0 h-full w-full"
+      aria-hidden
+    >
+      <rect width="500" height="340" fill="#eef1ec" />
+      {/* Hudson River (left) */}
+      <polygon points="0,0 120,0 66,340 0,340" fill="#bfe0f2" />
+      {/* East River (bottom-right) */}
+      <polygon points="500,150 500,340 300,340 360,230" fill="#bfe0f2" />
+      {/* Central Park */}
+      <rect x="250" y="60" width="78" height="120" rx="6" fill="#cbe8bd" />
+      {/* street grid */}
+      {streets.map((_, i) => (
+        <line
+          key={`s${i}`}
+          x1="60"
+          y1={24 + i * 30}
+          x2="500"
+          y2={24 + i * 30}
+          stroke="#dfe4de"
+          strokeWidth="1.5"
+        />
+      ))}
+      {avenues.map((_, i) => (
+        <line
+          key={`a${i}`}
+          x1={150 + i * 28}
+          y1="0"
+          x2={120 + i * 28}
+          y2="340"
+          stroke="#dfe4de"
+          strokeWidth="1.5"
+        />
+      ))}
+      {/* a couple of wide avenues */}
+      <line x1="210" y1="0" x2="180" y2="340" stroke="#ffffff" strokeWidth="5" />
+      <line x1="330" y1="0" x2="300" y2="340" stroke="#ffffff" strokeWidth="5" />
+      <line x1="60" y1="120" x2="500" y2="120" stroke="#ffffff" strokeWidth="4" />
+    </svg>
   );
 }
 
