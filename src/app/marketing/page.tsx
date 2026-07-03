@@ -5,6 +5,8 @@ import {
   FacebookIcon,
   GoogleBusinessIcon,
   InstagramIcon,
+  LinkedInIcon,
+  TikTokIcon,
   YoutubeIcon,
 } from "@/components/brand-icons";
 import { createClient } from "@/lib/supabase/server";
@@ -25,6 +27,7 @@ export default async function MarketingPage() {
       <main>
         <Hero />
         <PlatformBar />
+        <PublishEverywhere />
         <ShowcaseSection
           badge="Check-in"
           title="Log every job in under a minute"
@@ -36,7 +39,7 @@ export default async function MarketingPage() {
         <ShowcaseSection
           badge="Publish"
           title="One tap. Every platform."
-          description="Choose Facebook, Instagram, Google Business, or all of them. We brand the photo with your business name and city, write the caption, and post. Failed on Instagram? Retry just that platform."
+          description="Choose Facebook, Instagram, LinkedIn, TikTok, YouTube, Google Business — or all at once. We brand the photo with your business name and city, write the caption, and post to every network in parallel. Failed on one? Retry just that platform."
           image="/marketing/checkins-publish.png"
           imageAlt="Publishing check-ins to Facebook and Instagram with per-platform status"
           reverse
@@ -198,32 +201,118 @@ function Hero() {
   );
 }
 
-function PlatformBar() {
-  const platforms = [
-    { name: "Facebook", icon: <FacebookIcon className="h-6 w-6" style={{ color: "#1877F2" }} /> },
-    { name: "Instagram", icon: <InstagramIcon className="h-6 w-6" /> },
-    { name: "Google Business", icon: <GoogleBusinessIcon className="h-6 w-6" /> },
-    { name: "YouTube", icon: <YoutubeIcon className="h-6 w-6" /> },
-  ];
+const ALL_PLATFORMS = [
+  {
+    name: "Facebook",
+    icon: <FacebookIcon className="h-8 w-8" style={{ color: "#1877F2" }} />,
+    bg: "bg-blue-50",
+  },
+  { name: "Instagram", icon: <InstagramIcon className="h-8 w-8" />, bg: "bg-pink-50" },
+  { name: "LinkedIn", icon: <LinkedInIcon className="h-8 w-8" />, bg: "bg-sky-50" },
+  { name: "TikTok", icon: <TikTokIcon className="h-8 w-8" />, bg: "bg-slate-100" },
+  { name: "YouTube", icon: <YoutubeIcon className="h-8 w-8" />, bg: "bg-red-50" },
+  {
+    name: "Google Business",
+    icon: <GoogleBusinessIcon className="h-8 w-8" />,
+    bg: "bg-amber-50",
+  },
+];
 
+function PlatformBar() {
   return (
     <section className="border-y border-slate-200 bg-slate-50">
-      <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-12 gap-y-4 px-6 py-8">
+      <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-10 gap-y-4 px-6 py-8">
         <span className="text-xs font-semibold uppercase tracking-widest text-slate-400">
           Publish to
         </span>
-        {platforms.map((p) => (
+        {ALL_PLATFORMS.map((p) => (
           <span
             key={p.name}
             className="flex items-center gap-2 text-sm font-semibold text-slate-600"
           >
-            {p.icon}
+            <span className="[&>svg]:h-6 [&>svg]:w-6">{p.icon}</span>
             {p.name}
           </span>
         ))}
         <span className="text-sm font-semibold text-emerald-600">
           + your website map
         </span>
+      </div>
+    </section>
+  );
+}
+
+function PublishEverywhere() {
+  return (
+    <section className="relative overflow-hidden border-y border-slate-200 bg-slate-900 text-white">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 opacity-40 [background-image:radial-gradient(ellipse_60%_50%_at_50%_0%,rgba(59,130,246,0.35),transparent),radial-gradient(ellipse_40%_40%_at_80%_100%,rgba(217,41,118,0.25),transparent)]"
+      />
+      <div className="relative mx-auto max-w-6xl px-6 py-20 lg:py-28">
+        <div className="mx-auto max-w-3xl text-center">
+          <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-sm font-medium text-blue-100">
+            <span className="h-2 w-2 animate-pulse rounded-full bg-green-400" />
+            One tap · every network
+          </span>
+          <h2 className="mt-6 text-3xl font-bold tracking-tight sm:text-5xl">
+            Post to{" "}
+            <span className="bg-gradient-to-r from-blue-400 via-sky-300 to-violet-400 bg-clip-text text-transparent">
+              every social network
+            </span>{" "}
+            at once
+          </h2>
+          <p className="mx-auto mt-4 max-w-2xl text-lg text-slate-300">
+            No logging into six apps. One check-in publishes simultaneously to
+            Facebook, Instagram, LinkedIn, TikTok, YouTube and Google Business —
+            each formatted correctly for its platform.
+          </p>
+        </div>
+
+        {/* radial: one check-in fanning out to all networks */}
+        <div className="mt-14 flex flex-col items-center">
+          <div className="flex items-center gap-2 rounded-2xl bg-white px-5 py-3 text-slate-900 shadow-xl">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600 text-sm font-bold text-white">
+              O
+            </span>
+            <span className="text-sm font-semibold">1 check-in</span>
+          </div>
+
+          <div aria-hidden className="my-4 h-10 w-px bg-gradient-to-b from-white/60 to-transparent" />
+
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+            {ALL_PLATFORMS.map((p) => (
+              <div
+                key={p.name}
+                className="group flex flex-col items-center gap-3 rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur transition hover:bg-white/10"
+              >
+                <span
+                  className={`flex h-14 w-14 items-center justify-center rounded-2xl ${p.bg} shadow-md transition group-hover:scale-105`}
+                >
+                  {p.icon}
+                </span>
+                <span className="text-xs font-semibold text-slate-200">
+                  {p.name}
+                </span>
+                <span className="flex items-center gap-1 text-[11px] font-medium text-green-400">
+                  <svg className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                    <path
+                      fillRule="evenodd"
+                      d="M16.7 5.3a1 1 0 0 1 0 1.4l-7.5 7.5a1 1 0 0 1-1.4 0L3.3 9.7a1 1 0 1 1 1.4-1.4l3.1 3.1 6.8-6.8a1 1 0 0 1 1.4 0z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                  Posted
+                </span>
+              </div>
+            ))}
+          </div>
+
+          <p className="mt-8 text-sm text-slate-400">
+            Something failed? Retry just that one platform — the rest stay
+            posted.
+          </p>
+        </div>
       </div>
     </section>
   );
