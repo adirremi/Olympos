@@ -26,7 +26,7 @@
       return null;
     })();
 
-  var ORIGIN = "https://olympos-beta.vercel.app";
+  var ORIGIN = "https://olympossync.com";
   try {
     if (thisScript && thisScript.src) {
       ORIGIN = new URL(thisScript.src).origin;

@@ -50,7 +50,7 @@ SQL Editor → הרץ:
 
 ```
 http://localhost:3000/api/google-business/callback
-https://olympos-beta.vercel.app/api/google-business/callback
+https://olympossync.com/api/google-business/callback
 ```
 
 שמור:
@@ -77,7 +77,7 @@ APP_BASE_URL=http://localhost:3000
 
 ב-Vercel production:
 ```env
-APP_BASE_URL=https://olympos-beta.vercel.app
+APP_BASE_URL=https://olympossync.com
 ```
 
 ---

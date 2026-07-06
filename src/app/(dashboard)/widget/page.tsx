@@ -22,7 +22,7 @@ export default async function WidgetSettingsPage() {
   const proto = headerList.get("x-forwarded-proto") ?? "https";
   const baseUrl =
     process.env.APP_BASE_URL ??
-    (host ? `${proto}://${host}` : "https://olympos-beta.vercel.app");
+    (host ? `${proto}://${host}` : "https://olympossync.com");
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">

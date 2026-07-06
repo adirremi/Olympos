@@ -31,7 +31,7 @@ export interface OlymposJobsProps {
   className?: string;
 }
 
-const DEFAULT_ORIGIN = "https://olympos-beta.vercel.app";
+const DEFAULT_ORIGIN = "https://olympossync.com";
 
 const CSS = `
 .olv{--olv-radius:14px;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#0f172a}
