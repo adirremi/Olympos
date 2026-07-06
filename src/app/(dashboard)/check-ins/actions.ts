@@ -112,6 +112,7 @@ export async function updateCheckInStatus(
 
   revalidatePath("/check-ins");
   revalidatePath("/dashboard");
+  revalidatePath("/map");
   return { success: true };
 }
 

@@ -221,6 +221,33 @@ export function CheckInList({ checkIns }: { checkIns: CheckInRow[] }) {
             ) : null}
 
             <div className="flex flex-wrap gap-2">
+              {checkIn.status === "published" ? (
+                <button
+                  type="button"
+                  disabled={isPending}
+                  onClick={() => {
+                    startTransition(async () => {
+                      await updateCheckInStatus(checkIn.id, "draft");
+                    });
+                  }}
+                  className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100"
+                >
+                  Hide from widget
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  disabled={isPending}
+                  onClick={() => {
+                    startTransition(async () => {
+                      await updateCheckInStatus(checkIn.id, "published");
+                    });
+                  }}
+                  className="rounded-lg border border-emerald-200 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-50"
+                >
+                  Show on widget
+                </button>
+              )}
               {checkIn.status !== "archived" ? (
                 <button
                   type="button"
