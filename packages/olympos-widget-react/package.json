@@ -1,0 +1,30 @@
+{
+  "name": "@olympos/widget-react",
+  "version": "0.1.0",
+  "description": "Server-rendered Olympos Sync job gallery for React and Next.js (SEO-friendly, no iframe).",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist", "README.md"],
+  "scripts": {
+    "build": "tsup src/index.tsx --format esm --dts --clean"
+  },
+  "keywords": ["olympos", "widget", "seo", "nextjs", "react", "local-business"],
+  "license": "MIT",
+  "peerDependencies": {
+    "react": ">=18"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "react": "^18.3.1",
+    "tsup": "^8.3.5",
+    "typescript": "^5.6.3"
+  }
+}

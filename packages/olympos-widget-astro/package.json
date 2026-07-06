@@ -1,0 +1,15 @@
+{
+  "name": "@olympos/widget-astro",
+  "version": "0.1.0",
+  "description": "Server-rendered Olympos Sync job gallery for Astro (SEO-friendly, no iframe).",
+  "type": "module",
+  "exports": {
+    "./OlymposJobs.astro": "./OlymposJobs.astro"
+  },
+  "files": ["OlymposJobs.astro", "README.md"],
+  "keywords": ["olympos", "widget", "seo", "astro", "local-business"],
+  "license": "MIT",
+  "peerDependencies": {
+    "astro": ">=3"
+  }
+}
