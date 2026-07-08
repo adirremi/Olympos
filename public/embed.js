@@ -146,35 +146,74 @@
     if (e.key === "Escape") closeLightbox();
   }
 
-  function buildJsonLd(business, jobs, mount) {
-    var images = [];
-    jobs.forEach(function (job) {
-      (job.media || []).forEach(function (m) {
-        if (m.type === "image") {
-          images.push({
-            "@type": "ImageObject",
-            contentUrl: m.url,
-            caption: altFor(business.name, job),
-            description: job.description || job.full_address,
-            contentLocation: { "@type": "Place", address: job.full_address },
-            uploadDate: job.created_at,
-          });
-        }
+  function titleForJob(job) {
+    var what = (job.description || "").replace(/\s+/g, " ").trim();
+    if (what) return what.length > 70 ? what.slice(0, 67) + "…" : what;
+    return "Job at " + job.full_address;
+  }
+
+  function placeForJob(job) {
+    var place = { "@type": "Place", address: job.full_address };
+    if (typeof job.lat === "number" && typeof job.lng === "number") {
+      place.geo = {
+        "@type": "GeoCoordinates",
+        latitude: job.lat,
+        longitude: job.lng,
+      };
+    }
+    return place;
+  }
+
+  function imagesForJob(businessName, job) {
+    return (job.media || [])
+      .filter(function (m) {
+        return m.type === "image";
+      })
+      .map(function (m) {
+        return {
+          "@type": "ImageObject",
+          contentUrl: m.url,
+          caption: altFor(businessName, job),
+          description: job.description || job.full_address,
+          contentLocation: placeForJob(job),
+          uploadDate: job.created_at,
+        };
       });
+  }
+
+  function buildJsonLd(business, jobs, mount) {
+    var capped = jobs.slice(0, 30);
+    var allImages = [];
+    capped.forEach(function (job) {
+      allImages = allImages.concat(imagesForJob(business.name, job));
     });
     var schema = {
       "@context": "https://schema.org",
-      "@type": "LocalBusiness",
-      name: business.name,
-      image: images.slice(0, 30),
-      subjectOf: jobs.slice(0, 30).map(function (job) {
-        return {
-          "@type": "CreativeWork",
-          about: job.description || job.full_address,
-          contentLocation: { "@type": "Place", address: job.full_address },
-          dateCreated: job.created_at,
-        };
-      }),
+      "@graph": [
+        {
+          "@type": "LocalBusiness",
+          name: business.name,
+          image: allImages,
+        },
+        {
+          "@type": "ItemList",
+          numberOfItems: capped.length,
+          itemListElement: capped.map(function (job, i) {
+            return {
+              "@type": "ListItem",
+              position: i + 1,
+              item: {
+                "@type": "CreativeWork",
+                name: titleForJob(job),
+                about: job.description || job.full_address,
+                image: imagesForJob(business.name, job),
+                locationCreated: placeForJob(job),
+                dateCreated: job.created_at,
+              },
+            };
+          }),
+        },
+      ],
     };
     var tag = document.createElement("script");
     tag.type = "application/ld+json";

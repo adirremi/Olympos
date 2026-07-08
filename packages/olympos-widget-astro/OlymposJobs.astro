@@ -22,6 +22,8 @@ type Media = { url: string; type: "image" | "video" };
 type Job = {
   id: string;
   full_address: string;
+  lat: number | null;
+  lng: number | null;
   description: string | null;
   created_at: string;
   media: Media[];
@@ -58,35 +60,67 @@ const altFor = (businessName: string, job: Job): string => {
   return `${businessName} — ${short} at ${job.full_address}`;
 };
 
-const images = business
-  ? jobs
-      .flatMap((job) =>
-        job.media
-          .filter((m) => m.type === "image")
-          .map((m) => ({
-            "@type": "ImageObject",
-            contentUrl: m.url,
-            caption: altFor(business.name, job),
-            description: job.description || job.full_address,
-            contentLocation: { "@type": "Place", address: job.full_address },
-            uploadDate: job.created_at,
-          })),
-      )
-      .slice(0, 30)
-  : [];
+const titleFor = (job: Job): string => {
+  const what = (job.description || "").replace(/\s+/g, " ").trim();
+  if (what) return what.length > 70 ? `${what.slice(0, 67)}…` : what;
+  return `Job at ${job.full_address}`;
+};
+
+const placeFor = (job: Job): Record<string, unknown> => {
+  const place: Record<string, unknown> = {
+    "@type": "Place",
+    address: job.full_address,
+  };
+  if (typeof job.lat === "number" && typeof job.lng === "number") {
+    place.geo = {
+      "@type": "GeoCoordinates",
+      latitude: job.lat,
+      longitude: job.lng,
+    };
+  }
+  return place;
+};
+
+const imagesFor = (businessName: string, job: Job) =>
+  job.media
+    .filter((m) => m.type === "image")
+    .map((m) => ({
+      "@type": "ImageObject",
+      contentUrl: m.url,
+      caption: altFor(businessName, job),
+      description: job.description || job.full_address,
+      contentLocation: placeFor(job),
+      uploadDate: job.created_at,
+    }));
+
+const capped = jobs.slice(0, 30);
 
 const jsonLd = business
   ? {
       "@context": "https://schema.org",
-      "@type": "LocalBusiness",
-      name: business.name,
-      image: images,
-      subjectOf: jobs.slice(0, 30).map((job) => ({
-        "@type": "CreativeWork",
-        about: job.description || job.full_address,
-        contentLocation: { "@type": "Place", address: job.full_address },
-        dateCreated: job.created_at,
-      })),
+      "@graph": [
+        {
+          "@type": "LocalBusiness",
+          name: business.name,
+          image: capped.flatMap((job) => imagesFor(business.name, job)),
+        },
+        {
+          "@type": "ItemList",
+          numberOfItems: capped.length,
+          itemListElement: capped.map((job, i) => ({
+            "@type": "ListItem",
+            position: i + 1,
+            item: {
+              "@type": "CreativeWork",
+              name: titleFor(job),
+              about: job.description || job.full_address,
+              image: imagesFor(business.name, job),
+              locationCreated: placeFor(job),
+              dateCreated: job.created_at,
+            },
+          })),
+        },
+      ],
     }
   : null;
 ---
