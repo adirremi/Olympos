@@ -89,16 +89,30 @@
     }
   }
 
-  function mediaTag(media, cls) {
+  function altFor(businessName, job) {
+    var what = (job.description || "Completed job").replace(/\s+/g, " ").trim();
+    var short = what.length > 80 ? what.slice(0, 77) + "…" : what;
+    return businessName + " — " + short + " at " + job.full_address;
+  }
+
+  function mediaTag(media, cls, alt) {
     if (media.type === "video") {
       return (
-        '<video src="' + esc(media.url) + '" muted playsinline class="' + cls + '"></video>'
+        '<video src="' +
+        esc(media.url) +
+        '" muted playsinline aria-label="' +
+        esc(alt) +
+        '" class="' +
+        cls +
+        '"></video>'
       );
     }
     return (
       '<img src="' +
       esc(media.url) +
-      '" alt="" loading="lazy" class="' +
+      '" alt="' +
+      esc(alt) +
+      '" loading="lazy" class="' +
       cls +
       '">'
     );
@@ -136,7 +150,16 @@
     var images = [];
     jobs.forEach(function (job) {
       (job.media || []).forEach(function (m) {
-        if (m.type === "image") images.push(m.url);
+        if (m.type === "image") {
+          images.push({
+            "@type": "ImageObject",
+            contentUrl: m.url,
+            caption: altFor(business.name, job),
+            description: job.description || job.full_address,
+            contentLocation: { "@type": "Place", address: job.full_address },
+            uploadDate: job.created_at,
+          });
+        }
       });
     });
     var schema = {
@@ -189,15 +212,18 @@
     jobs.forEach(function (job) {
       var media = job.media || [];
       var cover = media[0];
+      var alt = altFor(business.name, job);
       html += '<article class="olv__card">';
       if (cover) {
         html +=
-          '<button class="olv__cover" data-url="' +
+          '<button class="olv__cover" aria-label="' +
+          esc(alt) +
+          '" data-url="' +
           esc(cover.url) +
           '" data-type="' +
           esc(cover.type) +
           '">' +
-          mediaTag(cover, "") +
+          mediaTag(cover, "", alt) +
           '<span class="olv__badge">' +
           (media.length > 1 ? media.length + " photos" : "1 photo") +
           "</span></button>";
@@ -211,12 +237,14 @@
         html += '<div class="olv__thumbs">';
         media.slice(1, 5).forEach(function (m) {
           html +=
-            '<button class="olv__thumb" data-url="' +
+            '<button class="olv__thumb" aria-label="' +
+            esc(alt) +
+            '" data-url="' +
             esc(m.url) +
             '" data-type="' +
             esc(m.type) +
             '">' +
-            mediaTag(m, "") +
+            mediaTag(m, "", alt) +
             "</button>";
         });
         html += "</div>";

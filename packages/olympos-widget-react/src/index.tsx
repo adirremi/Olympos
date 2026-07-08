@@ -79,16 +79,34 @@ async function fetchData(
   }
 }
 
-function Media({ media }: { media: OlymposMedia }) {
+/** Build a descriptive, SEO-friendly alt text for a job's media. */
+function altFor(businessName: string, job: OlymposJob): string {
+  const what = (job.description || "Completed job").replace(/\s+/g, " ").trim();
+  const short = what.length > 80 ? `${what.slice(0, 77)}…` : what;
+  return `${businessName} — ${short} at ${job.full_address}`;
+}
+
+function Media({ media, alt }: { media: OlymposMedia; alt: string }) {
   if (media.type === "video") {
-    return <video src={media.url} muted playsInline />;
+    return <video src={media.url} muted playsInline aria-label={alt} />;
   }
-  return <img src={media.url} alt="" loading="lazy" />;
+  return <img src={media.url} alt={alt} loading="lazy" />;
 }
 
 function buildJsonLd(business: { name: string }, jobs: OlymposJob[]) {
   const images = jobs
-    .flatMap((job) => job.media.filter((m) => m.type === "image").map((m) => m.url))
+    .flatMap((job) =>
+      job.media
+        .filter((m) => m.type === "image")
+        .map((m) => ({
+          "@type": "ImageObject",
+          contentUrl: m.url,
+          caption: altFor(business.name, job),
+          description: job.description || job.full_address,
+          contentLocation: { "@type": "Place", address: job.full_address },
+          uploadDate: job.created_at,
+        })),
+    )
     .slice(0, 30);
   return {
     "@context": "https://schema.org",
@@ -150,6 +168,7 @@ export async function OlymposJobs({
         {jobs.map((job) => {
           const cover = job.media[0];
           const extra = job.media.slice(1, 5);
+          const alt = altFor(business.name, job);
           return (
             <article className="olv__card" key={job.id}>
               {cover ? (
@@ -158,8 +177,9 @@ export async function OlymposJobs({
                   href={cover.url}
                   target="_blank"
                   rel="noopener noreferrer"
+                  aria-label={alt}
                 >
-                  <Media media={cover} />
+                  <Media media={cover} alt={alt} />
                   <span className="olv__badge">
                     {job.media.length > 1
                       ? `${job.media.length} photos`
@@ -181,8 +201,9 @@ export async function OlymposJobs({
                         target="_blank"
                         rel="noopener noreferrer"
                         key={`${job.id}-${i}`}
+                        aria-label={alt}
                       >
-                        <Media media={m} />
+                        <Media media={m} alt={alt} />
                       </a>
                     ))}
                   </div>

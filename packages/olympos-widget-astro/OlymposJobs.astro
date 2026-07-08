@@ -52,9 +52,28 @@ try {
 const business = data.business;
 const jobs = limit ? data.check_ins.slice(0, limit) : data.check_ins;
 
-const images = jobs
-  .flatMap((job) => job.media.filter((m) => m.type === "image").map((m) => m.url))
-  .slice(0, 30);
+const altFor = (businessName: string, job: Job): string => {
+  const what = (job.description || "Completed job").replace(/\s+/g, " ").trim();
+  const short = what.length > 80 ? `${what.slice(0, 77)}…` : what;
+  return `${businessName} — ${short} at ${job.full_address}`;
+};
+
+const images = business
+  ? jobs
+      .flatMap((job) =>
+        job.media
+          .filter((m) => m.type === "image")
+          .map((m) => ({
+            "@type": "ImageObject",
+            contentUrl: m.url,
+            caption: altFor(business.name, job),
+            description: job.description || job.full_address,
+            contentLocation: { "@type": "Place", address: job.full_address },
+            uploadDate: job.created_at,
+          })),
+      )
+      .slice(0, 30)
+  : [];
 
 const jsonLd = business
   ? {
@@ -89,14 +108,15 @@ const jsonLd = business
       {jobs.map((job) => {
         const cover = job.media[0];
         const extra = job.media.slice(1, 5);
+        const alt = altFor(business.name, job);
         return (
           <article class="olv__card">
             {cover && (
-              <a class="olv__cover" href={cover.url} target="_blank" rel="noopener noreferrer">
+              <a class="olv__cover" href={cover.url} target="_blank" rel="noopener noreferrer" aria-label={alt}>
                 {cover.type === "video" ? (
-                  <video src={cover.url} muted playsinline></video>
+                  <video src={cover.url} muted playsinline aria-label={alt}></video>
                 ) : (
-                  <img src={cover.url} alt="" loading="lazy" />
+                  <img src={cover.url} alt={alt} loading="lazy" />
                 )}
                 <span class="olv__badge">
                   {job.media.length > 1 ? `${job.media.length} photos` : "1 photo"}
@@ -109,11 +129,11 @@ const jsonLd = business
               {extra.length > 0 && (
                 <div class="olv__thumbs">
                   {extra.map((m) => (
-                    <a class="olv__thumb" href={m.url} target="_blank" rel="noopener noreferrer">
+                    <a class="olv__thumb" href={m.url} target="_blank" rel="noopener noreferrer" aria-label={alt}>
                       {m.type === "video" ? (
-                        <video src={m.url} muted playsinline></video>
+                        <video src={m.url} muted playsinline aria-label={alt}></video>
                       ) : (
-                        <img src={m.url} alt="" loading="lazy" />
+                        <img src={m.url} alt={alt} loading="lazy" />
                       )}
                     </a>
                   ))}
