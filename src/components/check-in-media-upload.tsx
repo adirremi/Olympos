@@ -16,6 +16,22 @@ function mediaTypeFromMime(mime: string): "image" | "video" {
 const MAX_DIMENSION = 1920;
 const WEBP_QUALITY = 0.82;
 const JPEG_QUALITY = 0.85;
+const MAX_FILE_BYTES = 50 * 1024 * 1024; // matches Supabase bucket limit
+const ALLOWED_IMAGE = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+]);
+const ALLOWED_VIDEO = new Set([
+  "video/mp4",
+  "video/webm",
+  "video/quicktime",
+]);
+
+function isAllowedMime(mime: string): boolean {
+  return ALLOWED_IMAGE.has(mime) || ALLOWED_VIDEO.has(mime);
+}
 
 // Compresses an image in the browser before upload: corrects EXIF orientation,
 // caps the longest side, and re-encodes as WebP (much smaller than JPEG) with a
@@ -93,14 +109,16 @@ export function CheckInMediaUpload({
       <div>
         <p className="text-sm font-medium text-slate-900">Photos & videos</p>
         <p className="text-xs text-slate-500">
-          Files upload to Supabase Storage and save in the database for the widget.
+          Select multiple photos or a video. Photos publish as a Facebook album /
+          Instagram carousel. A video publishes as a Facebook video / Instagram
+          Reel. Max 50&nbsp;MB · JPG, PNG, WebP, GIF, MP4, WebM, MOV.
         </p>
       </div>
 
       <input
         type="file"
         multiple
-        accept="image/*,video/*"
+        accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/quicktime"
         disabled={isPending}
         onChange={(event) => {
           const files = Array.from(event.target.files ?? []);
@@ -120,9 +138,35 @@ export function CheckInMediaUpload({
               return;
             }
 
+            // Continue sort_order after any media already on this check-in so a
+            // second "Add photos" batch doesn't collide at 0,1,2…
+            const { data: existing } = await supabase
+              .from("check_in_media")
+              .select("sort_order")
+              .eq("check_in_id", checkInId)
+              .order("sort_order", { ascending: false })
+              .limit(1);
+            let nextOrder =
+              typeof existing?.[0]?.sort_order === "number"
+                ? (existing[0].sort_order as number) + 1
+                : 0;
+
             const results: UploadedMedia[] = [];
 
             for (const [index, original] of files.entries()) {
+              if (!isAllowedMime(original.type)) {
+                setError(
+                  `"${original.name}" is not supported. Use JPG, PNG, WebP, GIF, MP4, WebM, or MOV.`,
+                );
+                return;
+              }
+              if (original.size > MAX_FILE_BYTES) {
+                setError(
+                  `"${original.name}" is over 50 MB. Compress it or pick a smaller file.`,
+                );
+                return;
+              }
+
               const file = await compressImage(original);
               const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
               const storagePath = `${user.id}/${checkInId}/${Date.now()}-${index}-${safeName}`;
@@ -151,7 +195,7 @@ export function CheckInMediaUpload({
                   image_url: publicUrl.publicUrl,
                   storage_path: storagePath,
                   media_type: mediaTypeFromMime(file.type),
-                  sort_order: index,
+                  sort_order: nextOrder,
                   file_size_bytes: file.size,
                   mime_type: file.type,
                 })
@@ -159,10 +203,15 @@ export function CheckInMediaUpload({
                 .single();
 
               if (insertError) {
+                // Best-effort: remove the orphaned storage object.
+                await supabase.storage
+                  .from("check-in-media")
+                  .remove([storagePath]);
                 setError(insertError.message);
                 return;
               }
 
+              nextOrder += 1;
               results.push(mediaRow as UploadedMedia);
             }
 
@@ -174,17 +223,32 @@ export function CheckInMediaUpload({
         className="block w-full text-sm text-slate-600 file:mr-3 file:rounded-md file:border-0 file:bg-slate-900 file:px-3 file:py-2 file:text-sm file:font-medium file:text-white"
       />
 
+      {isPending ? (
+        <p className="text-xs text-slate-500">Uploading…</p>
+      ) : null}
+
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
 
       {uploaded.length > 0 ? (
         <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {uploaded.map((item) => (
-            <li key={item.id} className="overflow-hidden rounded-md border border-slate-200 bg-white">
+            <li
+              key={item.id}
+              className="overflow-hidden rounded-md border border-slate-200 bg-white"
+            >
               {item.media_type === "video" ? (
-                <video src={item.image_url} controls className="h-24 w-full object-cover" />
+                <video
+                  src={item.image_url}
+                  controls
+                  className="h-24 w-full object-cover"
+                />
               ) : (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={item.image_url} alt="" className="h-24 w-full object-cover" />
+                <img
+                  src={item.image_url}
+                  alt=""
+                  className="h-24 w-full object-cover"
+                />
               )}
             </li>
           ))}

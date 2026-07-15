@@ -2,9 +2,12 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { buildOverlayImageUrl } from "@/lib/image/overlay";
 import { keywordsToHashtags } from "@/lib/keywords";
 import {
-  publishImageToInstagram,
+  publishAlbumToFacebookPage,
+  publishCarouselToInstagram,
   publishPhotoToFacebookPage,
   publishToFacebookPage,
+  publishVideoToFacebookPage,
+  publishVideoToInstagram,
 } from "./api";
 import type { MetaPlatform, PublishResult } from "./types";
 
@@ -16,6 +19,15 @@ type ConnectionRow = {
   account_id: string | null;
 };
 
+type MediaRow = {
+  image_url: string;
+  media_type: "image" | "video";
+  sort_order: number | null;
+  created_at: string;
+};
+
+const MAX_CAROUSEL = 10;
+
 function locationLabel(checkIn: {
   city?: string | null;
   region?: string | null;
@@ -25,27 +37,32 @@ function locationLabel(checkIn: {
   return parts.length > 0 ? parts.join(", ") : null;
 }
 
-// Returns the first URL whose object actually exists (HTTP 200). Meta fetches
-// images server-side, so a 404 URL fails the whole publish.
-async function firstReachableUrl(urls: string[]): Promise<string | undefined> {
-  for (const url of urls) {
-    try {
-      let res = await fetch(url, { method: "HEAD" });
-      if (!res.ok) {
-        res = await fetch(url, { method: "GET" });
-      }
-      if (res.ok) {
-        return url;
-      }
-    } catch {
-      // try the next candidate
+async function isReachable(url: string): Promise<boolean> {
+  try {
+    let res = await fetch(url, { method: "HEAD" });
+    if (!res.ok) {
+      res = await fetch(url, { method: "GET" });
     }
+    return res.ok;
+  } catch {
+    return false;
   }
-  return undefined;
 }
 
-// Publishes a check-in to the selected Meta platforms. Overlays the business
-// name + location onto the image before posting.
+async function filterReachable(urls: string[]): Promise<string[]> {
+  const out: string[] = [];
+  for (const url of urls) {
+    if (await isReachable(url)) {
+      out.push(url);
+    }
+  }
+  return out;
+}
+
+// Publishes a check-in to the selected Meta platforms.
+// - Multiple images → Facebook album + Instagram carousel (with overlays)
+// - Single image → single photo post
+// - Video only (or video with no reachable images) → Facebook video + IG Reel
 export async function publishCheckInToMeta(
   checkInId: string,
   platforms: MetaPlatform[] = ["facebook", "instagram"],
@@ -72,45 +89,69 @@ export async function publishCheckInToMeta(
     ? checkIn.businesses[0]?.name
     : (checkIn.businesses as { name?: string } | null)?.name;
 
-  const { data: media } = await admin
+  const { data: mediaRows } = await admin
     .from("check_in_media")
     .select("image_url, media_type, sort_order, created_at")
     .eq("check_in_id", checkInId)
-    .eq("media_type", "image")
     .order("sort_order", { ascending: true })
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: true });
 
-  // A check-in can have stale rows whose storage object was removed. Pick the
-  // first image whose file is actually reachable so we never hand Meta a dead
-  // URL (which surfaces as "media could not be fetched" / "invalid image").
-  const candidateUrls = (media ?? [])
-    .map((m) => m.image_url as string)
-    .filter(Boolean);
-  const originalImageUrl = await firstReachableUrl(candidateUrls);
+  const media = (mediaRows ?? []) as MediaRow[];
+  const imageCandidates = media
+    .filter((m) => m.media_type === "image" && m.image_url)
+    .map((m) => m.image_url);
+  const videoCandidates = media
+    .filter((m) => m.media_type === "video" && m.image_url)
+    .map((m) => m.image_url);
 
-  // The check-in has image rows but none of their files exist in storage (e.g.
-  // they were deleted). Fail clearly instead of posting a text-only Facebook
-  // post and an empty Instagram error.
-  if (candidateUrls.length > 0 && !originalImageUrl) {
+  const reachableImages = (
+    await filterReachable(imageCandidates)
+  ).slice(0, MAX_CAROUSEL);
+  const reachableVideo = (await filterReachable(videoCandidates))[0];
+
+  if (imageCandidates.length > 0 && reachableImages.length === 0) {
     throw new Error(
       "The image file is missing from storage. Please re-upload the photo to this check-in and try again.",
+    );
+  }
+  if (
+    imageCandidates.length === 0 &&
+    videoCandidates.length > 0 &&
+    !reachableVideo
+  ) {
+    throw new Error(
+      "The video file is missing from storage. Please re-upload the video to this check-in and try again.",
+    );
+  }
+  if (reachableImages.length === 0 && !reachableVideo) {
+    throw new Error(
+      "Add at least one photo or video to this check-in before publishing.",
     );
   }
 
   const label = locationLabel(checkIn);
 
-  // Build the overlay image once and reuse for both platforms.
-  let postImageUrl = originalImageUrl;
-  let overlayPath: string | null = null;
-  if (originalImageUrl) {
-    const overlay = await buildOverlayImageUrl({
-      imageUrl: originalImageUrl,
-      businessName: businessName ?? "",
-      locationLabel: label,
-      checkInId,
-    });
-    postImageUrl = overlay.url;
-    overlayPath = overlay.path;
+  // Prefer photos when present (album/carousel). Video-only falls through to
+  // the video path. Mixed check-ins: photos go to Meta; video stays on widget.
+  const mode: "images" | "video" =
+    reachableImages.length > 0 ? "images" : "video";
+
+  const overlayPaths: string[] = [];
+  let postImageUrls: string[] = [];
+
+  if (mode === "images") {
+    for (const url of reachableImages) {
+      const overlay = await buildOverlayImageUrl({
+        imageUrl: url,
+        businessName: businessName ?? "",
+        locationLabel: label,
+        checkInId,
+      });
+      postImageUrls.push(overlay.url);
+      if (overlay.path) {
+        overlayPaths.push(overlay.path);
+      }
+    }
   }
 
   const { data: connections } = await admin
@@ -131,7 +172,6 @@ export async function publishCheckInToMeta(
     provider: MetaPlatform,
     outcome: { ok: boolean; id?: string; error?: string },
   ) {
-    // Best-effort; never block on logging.
     try {
       await admin.from("check_in_publications").insert({
         check_in_id: checkInId,
@@ -140,10 +180,13 @@ export async function publishCheckInToMeta(
         external_id: outcome.id ?? null,
         error: outcome.error ?? null,
         caption,
-        image_url: postImageUrl ?? null,
+        image_url:
+          mode === "images"
+            ? (postImageUrls[0] ?? null)
+            : (reachableVideo ?? null),
       });
     } catch {
-      // ignore logging failures (e.g. migration 010 not run yet)
+      // ignore logging failures
     }
   }
 
@@ -155,24 +198,42 @@ export async function publishCheckInToMeta(
       .maybeSingle();
 
     const pageToken = (secret as { access_token: string } | null)?.access_token;
-    if (!pageToken) {
+    if (!pageToken || !connection.account_id) {
       continue;
     }
 
-    if (connection.provider === "facebook" && connection.account_id) {
+    if (connection.provider === "facebook") {
       try {
-        const id = postImageUrl
-          ? await publishPhotoToFacebookPage(
-              connection.account_id,
-              pageToken,
-              postImageUrl,
-              caption || checkIn.full_address,
-            )
-          : await publishToFacebookPage(
-              connection.account_id,
-              pageToken,
-              caption || checkIn.full_address,
-            );
+        let id: string;
+        if (mode === "images") {
+          id =
+            postImageUrls.length > 1
+              ? await publishAlbumToFacebookPage(
+                  connection.account_id,
+                  pageToken,
+                  postImageUrls,
+                  caption || checkIn.full_address,
+                )
+              : await publishPhotoToFacebookPage(
+                  connection.account_id,
+                  pageToken,
+                  postImageUrls[0],
+                  caption || checkIn.full_address,
+                );
+        } else if (reachableVideo) {
+          id = await publishVideoToFacebookPage(
+            connection.account_id,
+            pageToken,
+            reachableVideo,
+            caption || checkIn.full_address,
+          );
+        } else {
+          id = await publishToFacebookPage(
+            connection.account_id,
+            pageToken,
+            caption || checkIn.full_address,
+          );
+        }
         result.facebook = { ok: true, id };
       } catch (error) {
         result.facebook = {
@@ -183,22 +244,28 @@ export async function publishCheckInToMeta(
       await logPublication("facebook", result.facebook);
     }
 
-    if (connection.provider === "instagram" && connection.account_id) {
-      if (!postImageUrl) {
-        result.instagram = {
-          ok: false,
-          error: "Instagram requires at least one image on the check-in.",
-        };
-        await logPublication("instagram", result.instagram);
-        continue;
-      }
+    if (connection.provider === "instagram") {
       try {
-        const id = await publishImageToInstagram(
-          connection.account_id,
-          pageToken,
-          postImageUrl,
-          caption || checkIn.full_address,
-        );
+        let id: string;
+        if (mode === "images") {
+          id = await publishCarouselToInstagram(
+            connection.account_id,
+            pageToken,
+            postImageUrls,
+            caption || checkIn.full_address,
+          );
+        } else if (reachableVideo) {
+          id = await publishVideoToInstagram(
+            connection.account_id,
+            pageToken,
+            reachableVideo,
+            caption || checkIn.full_address,
+          );
+        } else {
+          throw new Error(
+            "Instagram requires at least one photo or video on the check-in.",
+          );
+        }
         result.instagram = { ok: true, id };
       } catch (error) {
         result.instagram = {
@@ -210,12 +277,9 @@ export async function publishCheckInToMeta(
     }
   }
 
-  // Meta has fetched the image by now (FB downloads during /photos, IG during
-  // container processing which we waited for), so the overlay is no longer
-  // needed. Delete it to avoid keeping a second copy of every image.
-  if (overlayPath) {
+  if (overlayPaths.length > 0) {
     try {
-      await admin.storage.from("check-in-media").remove([overlayPath]);
+      await admin.storage.from("check-in-media").remove(overlayPaths);
     } catch {
       // best-effort cleanup
     }
