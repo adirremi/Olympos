@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 type UploadedMedia = {
@@ -9,19 +9,20 @@ type UploadedMedia = {
   media_type: "image" | "video";
 };
 
-function mediaTypeFromMime(mime: string): "image" | "video" {
-  return mime.startsWith("video/") ? "video" : "image";
-}
-
 const MAX_DIMENSION = 1920;
 const WEBP_QUALITY = 0.82;
 const JPEG_QUALITY = 0.85;
-const MAX_FILE_BYTES = 50 * 1024 * 1024; // matches Supabase bucket limit
+const MAX_FILE_BYTES = 50 * 1024 * 1024;
+const COMPRESS_TIMEOUT_MS = 20_000;
+const UPLOAD_TIMEOUT_MS = 90_000;
+
 const ALLOWED_IMAGE = new Set([
   "image/jpeg",
   "image/png",
   "image/webp",
   "image/gif",
+  "image/heic",
+  "image/heif",
 ]);
 const ALLOWED_VIDEO = new Set([
   "video/mp4",
@@ -29,24 +30,67 @@ const ALLOWED_VIDEO = new Set([
   "video/quicktime",
 ]);
 
+function mediaTypeFromMime(mime: string): "image" | "video" {
+  return mime.startsWith("video/") ? "video" : "image";
+}
+
+function guessMime(file: File): string {
+  if (file.type) return file.type;
+  const name = file.name.toLowerCase();
+  if (name.endsWith(".jpg") || name.endsWith(".jpeg")) return "image/jpeg";
+  if (name.endsWith(".png")) return "image/png";
+  if (name.endsWith(".webp")) return "image/webp";
+  if (name.endsWith(".gif")) return "image/gif";
+  if (name.endsWith(".heic")) return "image/heic";
+  if (name.endsWith(".heif")) return "image/heif";
+  if (name.endsWith(".mp4")) return "video/mp4";
+  if (name.endsWith(".webm")) return "video/webm";
+  if (name.endsWith(".mov")) return "video/quicktime";
+  return "";
+}
+
 function isAllowedMime(mime: string): boolean {
   return ALLOWED_IMAGE.has(mime) || ALLOWED_VIDEO.has(mime);
 }
 
-// Compresses an image in the browser before upload: corrects EXIF orientation,
-// caps the longest side, and re-encodes as WebP (much smaller than JPEG) with a
-// JPEG fallback for browsers that can't encode WebP. We store only this
-// optimized version, so there is never a heavy original to clean up later.
-// Videos, GIFs, and non-images are returned unchanged.
-async function compressImage(file: File): Promise<File> {
-  if (!file.type.startsWith("image/") || file.type === "image/gif") {
+function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  message: string,
+): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(message)), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      },
+    );
+  });
+}
+
+// Compress still images in the browser. HEIC/HEIF and GIFs are left alone
+// (HEIC often hangs createImageBitmap on Safari — we skip compression).
+async function compressImage(file: File, mime: string): Promise<File> {
+  if (
+    !mime.startsWith("image/") ||
+    mime === "image/gif" ||
+    mime === "image/heic" ||
+    mime === "image/heif"
+  ) {
     return file;
   }
 
   try {
-    const bitmap = await createImageBitmap(file, {
-      imageOrientation: "from-image",
-    });
+    const bitmap = await withTimeout(
+      createImageBitmap(file, { imageOrientation: "from-image" }),
+      COMPRESS_TIMEOUT_MS,
+      "Image processing timed out. Try a smaller photo.",
+    );
 
     const scale = Math.min(
       1,
@@ -66,20 +110,26 @@ async function compressImage(file: File): Promise<File> {
     ctx.drawImage(bitmap, 0, 0, targetWidth, targetHeight);
     bitmap.close();
 
-    // Prefer WebP; browsers that don't support encoding it return a PNG blob
-    // (wrong type), so we verify and fall back to JPEG.
-    let blob = await new Promise<Blob | null>((resolve) =>
-      canvas.toBlob(resolve, "image/webp", WEBP_QUALITY),
+    let blob = await withTimeout(
+      new Promise<Blob | null>((resolve) =>
+        canvas.toBlob(resolve, "image/webp", WEBP_QUALITY),
+      ),
+      COMPRESS_TIMEOUT_MS,
+      "Image encoding timed out.",
     );
     let extension = "webp";
-    let mime = "image/webp";
+    let outMime = "image/webp";
 
     if (!blob || blob.type !== "image/webp") {
-      blob = await new Promise<Blob | null>((resolve) =>
-        canvas.toBlob(resolve, "image/jpeg", JPEG_QUALITY),
+      blob = await withTimeout(
+        new Promise<Blob | null>((resolve) =>
+          canvas.toBlob(resolve, "image/jpeg", JPEG_QUALITY),
+        ),
+        COMPRESS_TIMEOUT_MS,
+        "Image encoding timed out.",
       );
       extension = "jpg";
-      mime = "image/jpeg";
+      outMime = "image/jpeg";
     }
 
     if (!blob || blob.size >= file.size) {
@@ -87,8 +137,13 @@ async function compressImage(file: File): Promise<File> {
     }
 
     const newName = file.name.replace(/\.[^.]+$/, "") + "." + extension;
-    return new File([blob], newName, { type: mime });
-  } catch {
+    return new File([blob], newName, { type: outMime });
+  } catch (err) {
+    // Compression failed / timed out — fall back to the original so upload
+    // still proceeds instead of hanging forever.
+    if (err instanceof Error && err.message.includes("timed out")) {
+      return file;
+    }
     return file;
   }
 }
@@ -102,7 +157,129 @@ export function CheckInMediaUpload({
 }) {
   const [error, setError] = useState<string | null>(null);
   const [uploaded, setUploaded] = useState<UploadedMedia[]>([]);
-  const [isPending, startTransition] = useTransition();
+  const [progress, setProgress] = useState<string | null>(null);
+
+  async function handleFiles(files: File[], input: HTMLInputElement) {
+    setError(null);
+    setProgress("Preparing…");
+
+    try {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        setError("Not authenticated.");
+        return;
+      }
+
+      const { data: existing } = await supabase
+        .from("check_in_media")
+        .select("sort_order")
+        .eq("check_in_id", checkInId)
+        .order("sort_order", { ascending: false })
+        .limit(1);
+      let nextOrder =
+        typeof existing?.[0]?.sort_order === "number"
+          ? (existing[0].sort_order as number) + 1
+          : 0;
+
+      const results: UploadedMedia[] = [];
+
+      for (const [index, original] of files.entries()) {
+        const mime = guessMime(original);
+        const label = original.name || `file ${index + 1}`;
+
+        if (!isAllowedMime(mime)) {
+          setError(
+            `"${label}" is not supported. Use JPG, PNG, WebP, GIF, MP4, WebM, or MOV.`,
+          );
+          return;
+        }
+        if (original.size > MAX_FILE_BYTES) {
+          setError(
+            `"${label}" is over 50 MB. Compress it or pick a smaller file.`,
+          );
+          return;
+        }
+
+        setProgress(
+          `Processing ${index + 1}/${files.length}: ${label.slice(0, 40)}`,
+        );
+        const file = await compressImage(original, mime);
+
+        // HEIC is not in the bucket allow-list — refuse with a clear message
+        // instead of a cryptic storage error after a long upload.
+        const outMime = file.type || mime;
+        if (outMime === "image/heic" || outMime === "image/heif") {
+          setError(
+            `"${label}" is HEIC. Convert it to JPG on your phone (Settings → Camera → Most Compatible) or export as JPG.`,
+          );
+          return;
+        }
+
+        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+        const storagePath = `${user.id}/${checkInId}/${Date.now()}-${index}-${safeName}`;
+
+        setProgress(
+          `Uploading ${index + 1}/${files.length}: ${label.slice(0, 40)}`,
+        );
+
+        const { error: uploadError } = await withTimeout(
+          supabase.storage.from("check-in-media").upload(storagePath, file, {
+            cacheControl: "3600",
+            upsert: false,
+            contentType: outMime || file.type || "application/octet-stream",
+          }),
+          UPLOAD_TIMEOUT_MS,
+          `"${label}" upload timed out. Check your connection and try again.`,
+        );
+
+        if (uploadError) {
+          setError(uploadError.message);
+          return;
+        }
+
+        const { data: publicUrl } = supabase.storage
+          .from("check-in-media")
+          .getPublicUrl(storagePath);
+
+        const { data: mediaRow, error: insertError } = await supabase
+          .from("check_in_media")
+          .insert({
+            check_in_id: checkInId,
+            image_url: publicUrl.publicUrl,
+            storage_path: storagePath,
+            media_type: mediaTypeFromMime(outMime),
+            sort_order: nextOrder,
+            file_size_bytes: file.size,
+            mime_type: outMime,
+          })
+          .select("id, image_url, media_type")
+          .single();
+
+        if (insertError) {
+          await supabase.storage.from("check-in-media").remove([storagePath]);
+          setError(insertError.message);
+          return;
+        }
+
+        nextOrder += 1;
+        results.push(mediaRow as UploadedMedia);
+        setUploaded((current) => [...current, mediaRow as UploadedMedia]);
+      }
+
+      onComplete?.(results);
+      input.value = "";
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Upload failed.");
+    } finally {
+      setProgress(null);
+    }
+  }
+
+  const busy = progress !== null;
 
   return (
     <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
@@ -118,113 +295,18 @@ export function CheckInMediaUpload({
       <input
         type="file"
         multiple
-        accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/quicktime"
-        disabled={isPending}
+        accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/quicktime,.jpg,.jpeg,.png,.webp,.gif,.mp4,.webm,.mov"
+        disabled={busy}
         onChange={(event) => {
           const files = Array.from(event.target.files ?? []);
-          if (!files.length) {
-            return;
-          }
-
-          startTransition(async () => {
-            setError(null);
-            const supabase = createClient();
-            const {
-              data: { user },
-            } = await supabase.auth.getUser();
-
-            if (!user) {
-              setError("Not authenticated.");
-              return;
-            }
-
-            // Continue sort_order after any media already on this check-in so a
-            // second "Add photos" batch doesn't collide at 0,1,2…
-            const { data: existing } = await supabase
-              .from("check_in_media")
-              .select("sort_order")
-              .eq("check_in_id", checkInId)
-              .order("sort_order", { ascending: false })
-              .limit(1);
-            let nextOrder =
-              typeof existing?.[0]?.sort_order === "number"
-                ? (existing[0].sort_order as number) + 1
-                : 0;
-
-            const results: UploadedMedia[] = [];
-
-            for (const [index, original] of files.entries()) {
-              if (!isAllowedMime(original.type)) {
-                setError(
-                  `"${original.name}" is not supported. Use JPG, PNG, WebP, GIF, MP4, WebM, or MOV.`,
-                );
-                return;
-              }
-              if (original.size > MAX_FILE_BYTES) {
-                setError(
-                  `"${original.name}" is over 50 MB. Compress it or pick a smaller file.`,
-                );
-                return;
-              }
-
-              const file = await compressImage(original);
-              const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-              const storagePath = `${user.id}/${checkInId}/${Date.now()}-${index}-${safeName}`;
-
-              const { error: uploadError } = await supabase.storage
-                .from("check-in-media")
-                .upload(storagePath, file, {
-                  cacheControl: "3600",
-                  upsert: false,
-                  contentType: file.type,
-                });
-
-              if (uploadError) {
-                setError(uploadError.message);
-                return;
-              }
-
-              const { data: publicUrl } = supabase.storage
-                .from("check-in-media")
-                .getPublicUrl(storagePath);
-
-              const { data: mediaRow, error: insertError } = await supabase
-                .from("check_in_media")
-                .insert({
-                  check_in_id: checkInId,
-                  image_url: publicUrl.publicUrl,
-                  storage_path: storagePath,
-                  media_type: mediaTypeFromMime(file.type),
-                  sort_order: nextOrder,
-                  file_size_bytes: file.size,
-                  mime_type: file.type,
-                })
-                .select("id, image_url, media_type")
-                .single();
-
-              if (insertError) {
-                // Best-effort: remove the orphaned storage object.
-                await supabase.storage
-                  .from("check-in-media")
-                  .remove([storagePath]);
-                setError(insertError.message);
-                return;
-              }
-
-              nextOrder += 1;
-              results.push(mediaRow as UploadedMedia);
-            }
-
-            setUploaded((current) => [...current, ...results]);
-            onComplete?.(results);
-            event.target.value = "";
-          });
+          if (!files.length) return;
+          void handleFiles(files, event.target);
         }}
-        className="block w-full text-sm text-slate-600 file:mr-3 file:rounded-md file:border-0 file:bg-slate-900 file:px-3 file:py-2 file:text-sm file:font-medium file:text-white"
+        className="block w-full text-sm text-slate-600 file:mr-3 file:rounded-md file:border-0 file:bg-slate-900 file:px-3 file:py-2 file:text-sm file:font-medium file:text-white disabled:opacity-60"
       />
 
-      {isPending ? (
-        <p className="text-xs text-slate-500">Uploading…</p>
+      {progress ? (
+        <p className="text-xs font-medium text-blue-700">{progress}</p>
       ) : null}
 
       {error ? <p className="text-sm text-red-600">{error}</p> : null}

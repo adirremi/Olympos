@@ -140,17 +140,21 @@ export async function publishCheckInToMeta(
   let postImageUrls: string[] = [];
 
   if (mode === "images") {
-    for (const url of reachableImages) {
-      const overlay = await buildOverlayImageUrl({
-        imageUrl: url,
-        businessName: businessName ?? "",
-        locationLabel: label,
-        checkInId,
-      });
-      postImageUrls.push(overlay.url);
-      if (overlay.path) {
-        overlayPaths.push(overlay.path);
-      }
+    // Overlay in parallel (capped) so multi-photo publishes don't sit on
+    // Vercel long enough to look "stuck" / hit the function timeout.
+    const overlays = await Promise.all(
+      reachableImages.map((url) =>
+        buildOverlayImageUrl({
+          imageUrl: url,
+          businessName: businessName ?? "",
+          locationLabel: label,
+          checkInId,
+        }),
+      ),
+    );
+    postImageUrls = overlays.map((o) => o.url);
+    for (const o of overlays) {
+      if (o.path) overlayPaths.push(o.path);
     }
   }
 
