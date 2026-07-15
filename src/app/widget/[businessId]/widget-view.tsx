@@ -367,6 +367,7 @@ export function WidgetView({ data }: { data: WidgetData }) {
         .olv-jm-pin-dot { display: block; width: 18px; height: 18px; border-radius: 999px; background: #0b2447; box-shadow: 0 4px 12px rgba(11, 36, 71, 0.35); border: 2px solid #fff; }
         .olv-jm-pop { display: flex; flex-direction: column; gap: 6px; font-family: inherit; }
         .olv-jm-title { font-size: 0.95rem; }
+        .olv-jm-addr { font-size: 0.78rem; color: #475569; line-height: 1.35; }
         .olv-jm-sub { font-size: 0.75rem; color: #64748b; }
         .olv-jm-shots { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
         .olv-jm-shot { border: 0; padding: 0; width: 64px; height: 48px; border-radius: 6px; overflow: hidden; cursor: pointer; background: #f1f5f9; }

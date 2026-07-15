@@ -132,25 +132,24 @@ export function WidgetMap({
         const bounds: [number, number][] = [];
 
         for (const point of points) {
-          const shots = point.jobs.slice(0, 4);
-          const thumbs = shots
-            .map((job) => {
-              const thumb = thumbOf(job);
-              if (!thumb) return "";
-              const title = job.description || job.full_address;
-              return `<button type="button" class="olv-jm-shot" data-job-id="${esc(job.id)}" title="${esc(title)}"><img src="${esc(thumb)}" alt="" loading="lazy" width="120" height="90"></button>`;
-            })
-            .join("");
-          const more =
-            point.count > shots.length
-              ? `<span class="olv-jm-more">+${point.count - shots.length} more</span>`
-              : "";
+          const job = point.jobs[0];
+          const title = job?.description || point.label;
+          const addr = job?.full_address;
+          const thumb = job ? thumbOf(job) : null;
+          const shot = thumb
+            ? `<button type="button" class="olv-jm-shot" data-job-id="${esc(job!.id)}" title="${esc(title)}"><img src="${esc(thumb)}" alt="" loading="lazy" width="120" height="90"></button>`
+            : "";
 
           const html =
             `<div class="olv-jm-pop">` +
             `<strong class="olv-jm-title">${esc(point.label)}</strong>` +
-            `<span class="olv-jm-sub">${point.count} job${point.count === 1 ? "" : "s"}</span>` +
-            `<div class="olv-jm-shots">${thumbs}${more}</div>` +
+            (addr && addr !== point.label
+              ? `<span class="olv-jm-addr">${esc(addr)}</span>`
+              : "") +
+            (job?.description
+              ? `<span class="olv-jm-sub">${esc(job.description.slice(0, 120))}</span>`
+              : "") +
+            `<div class="olv-jm-shots">${shot}</div>` +
             `</div>`;
 
           const icon = L.divIcon({
