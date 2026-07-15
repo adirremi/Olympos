@@ -364,7 +364,7 @@ export function WidgetView({ data }: { data: WidgetData }) {
         .olv-map-intro { margin: 0 0 14px; color: var(--olv-muted); font-size: 0.9rem; }
         .olv-jm-map { height: 420px; border-radius: 16px; overflow: hidden; border: 1px solid var(--olv-border); background: #e2e8f0; z-index: 1; }
         .olv-jm-pin { background: transparent !important; border: 0 !important; }
-        .olv-jm-pin-dot { display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 999px; background: #0b2447; color: #fff; font-size: 0.75rem; font-weight: 700; box-shadow: 0 4px 12px rgba(11, 36, 71, 0.35); border: 2px solid #fff; }
+        .olv-jm-pin-dot { display: block; width: 18px; height: 18px; border-radius: 999px; background: #0b2447; box-shadow: 0 4px 12px rgba(11, 36, 71, 0.35); border: 2px solid #fff; }
         .olv-jm-pop { display: flex; flex-direction: column; gap: 6px; font-family: inherit; }
         .olv-jm-title { font-size: 0.95rem; }
         .olv-jm-sub { font-size: 0.75rem; color: #64748b; }

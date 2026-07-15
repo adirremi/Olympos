@@ -17,37 +17,23 @@ function locationLabel(job: WidgetCheckIn): string {
   return parts.length > 0 ? parts.join(", ") : job.full_address;
 }
 
+/** One map pin per job at its exact lat/lng. */
 function groupPoints(checkIns: WidgetCheckIn[]): MapPoint[] {
-  const byKey = new Map<string, MapPoint>();
+  const points: MapPoint[] = [];
 
   for (const job of checkIns) {
     if (typeof job.lat !== "number" || typeof job.lng !== "number") continue;
-
-    const key = job.city
-      ? `city:${job.city.toLowerCase()}`
-      : `coord:${job.lat.toFixed(4)},${job.lng.toFixed(4)}`;
-
-    const existing = byKey.get(key);
-    if (existing) {
-      existing.count += 1;
-      existing.jobs.push(job);
-      existing.lat =
-        (existing.lat * (existing.count - 1) + job.lat) / existing.count;
-      existing.lng =
-        (existing.lng * (existing.count - 1) + job.lng) / existing.count;
-    } else {
-      byKey.set(key, {
-        id: key,
-        lat: job.lat,
-        lng: job.lng,
-        label: locationLabel(job),
-        count: 1,
-        jobs: [job],
-      });
-    }
+    points.push({
+      id: job.id,
+      lat: job.lat,
+      lng: job.lng,
+      label: locationLabel(job),
+      count: 1,
+      jobs: [job],
+    });
   }
 
-  return [...byKey.values()].sort((a, b) => b.count - a.count);
+  return points;
 }
 
 function thumbOf(job: WidgetCheckIn): string | null {
@@ -112,7 +98,6 @@ export function WidgetMap({
   const [error, setError] = useState<string | null>(null);
 
   const points = useMemo(() => groupPoints(checkIns), [checkIns]);
-  const totalPlaces = points.length;
   const totalJobs = checkIns.length;
 
   useEffect(() => {
@@ -170,10 +155,10 @@ export function WidgetMap({
 
           const icon = L.divIcon({
             className: "olv-jm-pin",
-            html: `<span class="olv-jm-pin-dot">${point.count}</span>`,
-            iconSize: [30, 30],
-            iconAnchor: [15, 15],
-            popupAnchor: [0, -14],
+            html: `<span class="olv-jm-pin-dot" aria-hidden="true"></span>`,
+            iconSize: [22, 22],
+            iconAnchor: [11, 11],
+            popupAnchor: [0, -12],
           });
 
           const marker = L.marker([point.lat, point.lng], { icon }).addTo(map);
@@ -232,8 +217,8 @@ export function WidgetMap({
         Where We&apos;ve Worked Recently
       </h2>
       <p className="olv-map-intro">
-        {totalJobs} recent job{totalJobs === 1 ? "" : "s"} across {totalPlaces}{" "}
-        location{totalPlaces === 1 ? "" : "s"}. Tap a pin to see the work.
+        {totalJobs} recent job{totalJobs === 1 ? "" : "s"} on the map — one pin
+        per job. Tap a pin to see the work.
       </p>
       <div ref={mapRef} className="olv-jm-map" role="application" />
     </section>
