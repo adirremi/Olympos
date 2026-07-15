@@ -13,13 +13,13 @@ const TABS: { id: Tab; label: string }[] = [
 
 const DESCRIPTIONS: Record<Tab, string> = {
   script:
-    "Drop-in for any website (WordPress, plain HTML, etc.). Injects your jobs as real HTML + structured data, so Google indexes them as part of your own site.",
+    "Drop-in for any website. Injects a Sunny-style Our Work block: job gallery + map with pins, as real HTML + structured data on your domain.",
   nextjs:
-    "Server Component for Next.js (App Router). Renders on the server for full SEO — no iframe, no client JavaScript required.",
+    "Server Component for Next.js (App Router). Renders the job gallery on the server for full SEO. For the full gallery+map standard, use the hosted widget iframe or /widget/{id} preview.",
   astro:
-    "Astro component. Server-rendered at build/request time for full SEO — no iframe.",
+    "Astro component. Server-rendered job gallery for full SEO. For the full gallery+map Our Work standard (like Sunny), use the hosted widget or wire /api/widget into JobsGallery + JobsMap.",
   iframe:
-    "Simplest option. Note: content inside an iframe is not credited to your domain by Google, so it won't help your SEO.",
+    "Full Olympos Our Work experience (gallery on top + interactive map below, pins linked to jobs). Fastest way to match the Sunny standard. Note: iframe content is weaker for SEO than the SSR components.",
 };
 
 export function EmbedCode({

@@ -58,6 +58,9 @@ export type WidgetCheckIn = {
   full_address: string;
   lat: number;
   lng: number;
+  city?: string | null;
+  region?: string | null;
+  country?: string | null;
   description: string | null;
   cta_type: CheckInCtaType;
   created_at: string;
